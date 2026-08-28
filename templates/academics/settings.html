@@ -1,0 +1,427 @@
+<!-- templates/academics/settings.html -->
+{% extends 'base.html' %}
+
+{% block title %}Settings — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<div class="mb-6">
+  <h1 class="text-2xl font-bold">Settings</h1>
+  <p class="text-white/40 text-sm mt-1">
+    Manage campuses, programs, modules and classes
+  </p>
+</div>
+
+<!-- ── Messages ──────────────────────────────────────────────────────────── -->
+{% if messages %}
+{% for message in messages %}
+<div class="rounded-xl p-4 mb-4 text-sm
+  {% if message.tags == 'error' %}
+    bg-red-500/10 border border-red-500/30 text-red-400
+  {% else %}
+    bg-brand-teal/10 border border-brand-teal/30 text-brand-teal
+  {% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ── Tab Navigation ────────────────────────────────────────────────────── -->
+<div class="flex gap-1 mb-6 p-1 rounded-xl w-fit"
+     style="background: rgba(255,255,255,0.05);">
+  {% for tab_id, tab_label in tabs %}
+  <button onclick="switchTab('{{ tab_id }}')"
+          id="tab-btn-{{ tab_id }}"
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-colors tab-btn">
+    {{ tab_label }}
+  </button>
+  {% endfor %}
+</div>
+
+<!-- ── Campuses Tab ───────────────────────────────────────────────────────── -->
+<div id="tab-campuses" class="tab-panel">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Campuses List -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Campuses</h2>
+      <div class="flex flex-col gap-2">
+        {% for campus in campuses %}
+        <div class="flex items-center justify-between p-3 rounded-lg"
+             style="background: rgba(255,255,255,0.05);">
+          <div>
+            <p class="text-sm font-medium">{{ campus.campus_name }}</p>
+            <p class="text-xs text-white/40">{{ campus.campus_code }}</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs px-2 py-1 rounded-full
+              {% if campus.is_active %}
+                bg-brand-teal/15 text-brand-teal
+              {% else %}
+                bg-white/10 text-white/40
+              {% endif %}">
+              {% if campus.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+            <form method="post"
+                  action="{% url 'academics:campus_edit' campus.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="campus_name"
+                     value="{{ campus.campus_name }}">
+              <input type="hidden" name="campus_code"
+                     value="{{ campus.campus_code }}">
+              <input type="hidden" name="is_active"
+                     value="{% if campus.is_active %}on{% endif %}">
+              <button type="submit"
+                      onclick="return toggleActive(this, event)"
+                      class="text-xs text-white/40 hover:text-white
+                             transition-colors">
+                {% if campus.is_active %}Deactivate{% else %}Activate{% endif %}
+              </button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-white/30 text-sm">No campuses found.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Add Campus Form -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Add campus</h2>
+      <form method="post" action="{% url 'academics:campus_add' %}">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          {% include 'admissions/includes/form_field.html' with field=campus_form.campus_name %}
+          {% include 'admissions/includes/form_field.html' with field=campus_form.campus_code %}
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ campus_form.is_active }}
+            Active
+          </label>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg text-sm font-semibold
+                         bg-brand-teal text-brand-navy hover:opacity-90
+                         transition-opacity w-fit">
+            Add campus
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Programs Tab ───────────────────────────────────────────────────────── -->
+<div id="tab-programs" class="tab-panel">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Programs List -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Programs</h2>
+      <div class="flex flex-col gap-2">
+        {% for program in programs %}
+        <div class="flex items-center justify-between p-3 rounded-lg"
+             style="background: rgba(255,255,255,0.05);">
+          <div>
+            <p class="text-sm font-medium">{{ program.program_name }}</p>
+            <p class="text-xs text-white/40">{{ program.program_code }}</p>
+          </div>
+          <span class="text-xs px-2 py-1 rounded-full
+            {% if program.is_active %}
+              bg-brand-teal/15 text-brand-teal
+            {% else %}
+              bg-white/10 text-white/40
+            {% endif %}">
+            {% if program.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </div>
+        {% empty %}
+        <p class="text-white/30 text-sm">No programs found.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Add Program Form -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Add program</h2>
+      <form method="post" action="{% url 'academics:program_add' %}">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          {% include 'admissions/includes/form_field.html' with field=program_form.program_name %}
+          {% include 'admissions/includes/form_field.html' with field=program_form.program_code %}
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ program_form.is_active }}
+            Active
+          </label>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg text-sm font-semibold
+                         bg-brand-teal text-brand-navy hover:opacity-90
+                         transition-opacity w-fit">
+            Add program
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Modules Tab ────────────────────────────────────────────────────────── -->
+<div id="tab-modules" class="tab-panel">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Modules List -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Modules</h2>
+      <div class="flex flex-col gap-2">
+        {% for module in modules %}
+        <div class="p-3 rounded-lg"
+             style="background: rgba(255,255,255,0.05);">
+          <div class="flex items-center justify-between mb-1">
+            <p class="text-sm font-medium">{{ module.module_name }}</p>
+            <span class="text-xs px-2 py-1 rounded-full
+              {% if module.is_active %}
+                bg-brand-teal/15 text-brand-teal
+              {% else %}
+                bg-white/10 text-white/40
+              {% endif %}">
+              {% if module.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </div>
+          <p class="text-xs text-white/40">{{ module.module_code }}</p>
+          <div class="flex gap-3 mt-2">
+            {% if module.is_local_assessment %}
+            <span class="text-xs text-blue-400">NQF5</span>
+            {% endif %}
+            {% if module.is_international_assessment %}
+            <span class="text-xs text-purple-400">
+              Int. Cert — {{ module.certifying_body }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-white/30 text-sm">No modules found.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Add Module Form -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Add module</h2>
+      <form method="post" action="{% url 'academics:module_add' %}">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          {% include 'admissions/includes/form_field.html' with field=module_form.module_name %}
+          {% include 'admissions/includes/form_field.html' with field=module_form.module_code %}
+          {% include 'admissions/includes/form_field.html' with field=module_form.certifying_body %}
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ module_form.is_local_assessment }}
+            Has local NQF5 assessment
+          </label>
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ module_form.is_international_assessment }}
+            Has international exam
+          </label>
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ module_form.is_active }}
+            Active
+          </label>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg text-sm font-semibold
+                         bg-brand-teal text-brand-navy hover:opacity-90
+                         transition-opacity w-fit">
+            Add module
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- Program-Module Links -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+
+    <!-- Links List -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Program — module links</h2>
+      <div class="flex flex-col gap-2">
+        {% for pm in program_modules %}
+        <div class="flex items-center justify-between p-3 rounded-lg"
+             style="background: rgba(255,255,255,0.05);">
+          <div>
+            <p class="text-sm">
+              <span class="font-medium">{{ pm.program.program_code }}</span>
+              <span class="text-white/40 mx-2">→</span>
+              {{ pm.module.module_name }}
+            </p>
+            {% if pm.is_default %}
+            <span class="text-xs text-amber-400">Default</span>
+            {% endif %}
+          </div>
+          <form method="post"
+                action="{% url 'academics:program_module_delete' pm.pk %}">
+            {% csrf_token %}
+            <button type="submit"
+                    onclick="return confirm('Remove this module link?')"
+                    class="text-xs text-red-400 hover:text-red-300
+                           transition-colors">
+              Remove
+            </button>
+          </form>
+        </div>
+        {% empty %}
+        <p class="text-white/30 text-sm">No program-module links found.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Add Link Form -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Link module to program</h2>
+      <form method="post"
+            action="{% url 'academics:program_module_add' %}">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          {% include 'admissions/includes/form_field.html' with field=program_module_form.program %}
+          {% include 'admissions/includes/form_field.html' with field=program_module_form.module %}
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ program_module_form.is_default }}
+            Auto-assign to new students in this program
+          </label>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg text-sm font-semibold
+                         bg-brand-teal text-brand-navy hover:opacity-90
+                         transition-opacity w-fit">
+            Link module
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Classes Tab ────────────────────────────────────────────────────────── -->
+<div id="tab-classes" class="tab-panel">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Classes List -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Classes</h2>
+      <div class="flex flex-col gap-2">
+        {% for class_obj in classes %}
+        {% with enrolled=class_obj.enrollments.count %}
+        <div class="p-3 rounded-lg"
+             style="background: rgba(255,255,255,0.05);">
+          <div class="flex items-center justify-between mb-1">
+            <p class="text-sm font-medium">{{ class_obj }}</p>
+            <span class="text-xs px-2 py-1 rounded-full
+              {% if class_obj.is_active %}
+                bg-brand-teal/15 text-brand-teal
+              {% else %}
+                bg-white/10 text-white/40
+              {% endif %}">
+              {% if class_obj.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </div>
+          <div class="flex gap-4 mt-1">
+            <p class="text-xs text-white/40">
+              Trainer: {{ class_obj.trainer|default:"Unassigned" }}
+            </p>
+            <p class="text-xs
+              {% if enrolled >= class_obj.capacity %}
+                text-red-400
+              {% elif enrolled >= class_obj.capacity|add:"-5" %}
+                text-amber-400
+              {% else %}
+                text-white/40
+              {% endif %}">
+              {{ enrolled }}/{{ class_obj.capacity }} students
+            </p>
+          </div>
+        </div>
+        {% endwith %}
+        {% empty %}
+        <p class="text-white/30 text-sm">No classes found.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Add Class Form -->
+    <div class="rounded-2xl p-6"
+         style="background: rgba(255,255,255,0.05);">
+      <h2 class="font-semibold mb-4">Add class</h2>
+      <form method="post" action="{% url 'academics:class_add' %}">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          {% include 'admissions/includes/form_field.html' with field=class_form.program %}
+          {% include 'admissions/includes/form_field.html' with field=class_form.campus %}
+          {% include 'admissions/includes/form_field.html' with field=class_form.trainer %}
+          {% include 'admissions/includes/form_field.html' with field=class_form.academic_year %}
+          {% include 'admissions/includes/form_field.html' with field=class_form.cohort %}
+          {% include 'admissions/includes/form_field.html' with field=class_form.capacity %}
+          <label class="flex items-center gap-2 text-sm text-white/70">
+            {{ class_form.is_active }}
+            Active
+          </label>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg text-sm font-semibold
+                         bg-brand-teal text-brand-navy hover:opacity-90
+                         transition-opacity w-fit">
+            Create class
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ── Tab definitions ────────────────────────────────────────────────────────
+  const TABS = ['campuses', 'programs', 'modules', 'classes'];
+
+  function switchTab(tabId) {
+    // Hide all panels
+    TABS.forEach(id => {
+      const panel = document.getElementById('tab-' + id);
+      const btn   = document.getElementById('tab-btn-' + id);
+      if (panel) panel.style.display = 'none';
+      if (btn) {
+        btn.style.background = 'transparent';
+        btn.style.color = 'rgba(255,255,255,0.4)';
+      }
+    });
+
+    // Show selected panel
+    const activePanel = document.getElementById('tab-' + tabId);
+    const activeBtn   = document.getElementById('tab-btn-' + tabId);
+    if (activePanel) activePanel.style.display = 'block';
+    if (activeBtn) {
+      activeBtn.style.background = 'rgba(255,255,255,0.1)';
+      activeBtn.style.color = 'white';
+    }
+  }
+
+  // ── Initialise on page load ────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Switch to the active tab passed from the view
+    const activeTab = '{{ active_tab }}';
+    switchTab(activeTab);
+  });
+</script>
+{% endblock %}

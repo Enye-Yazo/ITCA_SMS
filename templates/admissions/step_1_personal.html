@@ -1,0 +1,62 @@
+<!-- templates/admissions/step_1_personal.html -->
+{% extends 'admissions/base_form.html' %}
+
+{% block form_content %}
+<form method="post">
+  {% csrf_token %}
+
+  <div class="rounded-2xl p-6 mb-4"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Personal details
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      {% include 'admissions/includes/form_field.html' with field=form.first_name %}
+      {% include 'admissions/includes/form_field.html' with field=form.last_name %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {% include 'admissions/includes/form_field.html' with field=form.date_of_birth %}
+      {% include 'admissions/includes/form_field.html' with field=form.id_type %}
+      {% include 'admissions/includes/form_field.html' with field=form.id_number %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {% include 'admissions/includes/form_field.html' with field=form.gender %}
+      {% include 'admissions/includes/form_field.html' with field=form.nationality %}
+      {% include 'admissions/includes/form_field.html' with field=form.residential_status %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% include 'admissions/includes/form_field.html' with field=form.campus %}
+      {% include 'admissions/includes/form_field.html' with field=form.program %}
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex justify-between items-center">
+    <a href="{% url 'admissions:application_list' %}"
+       class="text-sm text-white/40 hover:text-white/70 transition-colors">
+      Cancel
+    </a>
+    <div class="flex gap-3">
+      {% if applicant %}
+      <button type="submit" name="action" value="draft"
+              class="px-4 py-2 rounded-lg text-sm text-white/60
+                     hover:text-white transition-colors"
+              style="background: rgba(255,255,255,0.08);">
+        Save draft
+      </button>
+      {% endif %}
+      <button type="submit"
+              class="px-5 py-2 rounded-lg text-sm font-semibold
+                     bg-brand-teal text-brand-navy hover:opacity-90
+                     transition-opacity">
+        Next — Contact →
+      </button>
+    </div>
+  </div>
+
+</form>
+{% endblock %}

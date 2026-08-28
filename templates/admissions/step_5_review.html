@@ -1,0 +1,109 @@
+<!-- templates/admissions/step_5_review.html -->
+{% extends 'admissions/base_form.html' %}
+
+{% block form_content %}
+
+<!-- ── Review Sections ───────────────────────────────────────────────────── -->
+
+<!-- Personal -->
+<div class="rounded-2xl p-6 mb-4"
+     style="background: rgba(255,255,255,0.05);">
+  <div class="flex justify-between items-center mb-4">
+    <p class="text-xs text-white/40 uppercase tracking-wider">
+      Personal details
+    </p>
+    <a href="{% url 'admissions:application_step' applicant.pk 1 %}"
+       class="text-xs text-brand-teal hover:underline">Edit</a>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {% include 'admissions/includes/review_field.html' with label="First name" value=applicant.first_name %}
+    {% include 'admissions/includes/review_field.html' with label="Last name" value=applicant.last_name %}
+    {% include 'admissions/includes/review_field.html' with label="Date of birth" value=applicant.date_of_birth %}
+    {% include 'admissions/includes/review_field.html' with label="ID type" value=applicant.get_id_type_display %}
+    {% include 'admissions/includes/review_field.html' with label="ID number" value=applicant.id_number %}
+    {% include 'admissions/includes/review_field.html' with label="Gender" value=applicant.gender %}
+    {% include 'admissions/includes/review_field.html' with label="Nationality" value=applicant.nationality %}
+    {% include 'admissions/includes/review_field.html' with label="Residential status" value=applicant.get_residential_status_display %}
+    {% include 'admissions/includes/review_field.html' with label="Campus" value=applicant.campus %}
+    {% include 'admissions/includes/review_field.html' with label="Program" value=applicant.program %}
+  </div>
+</div>
+
+<!-- Contact -->
+<div class="rounded-2xl p-6 mb-4"
+     style="background: rgba(255,255,255,0.05);">
+  <div class="flex justify-between items-center mb-4">
+    <p class="text-xs text-white/40 uppercase tracking-wider">
+      Contact & address
+    </p>
+    <a href="{% url 'admissions:application_step' applicant.pk 2 %}"
+       class="text-xs text-brand-teal hover:underline">Edit</a>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {% include 'admissions/includes/review_field.html' with label="Email" value=applicant.personal_email %}
+    {% include 'admissions/includes/review_field.html' with label="Phone" value=applicant.phone %}
+    {% include 'admissions/includes/review_field.html' with label="Address" value=applicant.residential_address %}
+    {% include 'admissions/includes/review_field.html' with label="City" value=applicant.city %}
+    {% include 'admissions/includes/review_field.html' with label="Province" value=applicant.province %}
+    {% include 'admissions/includes/review_field.html' with label="Postal code" value=applicant.postal_code %}
+  </div>
+</div>
+
+<!-- Education -->
+<div class="rounded-2xl p-6 mb-4"
+     style="background: rgba(255,255,255,0.05);">
+  <div class="flex justify-between items-center mb-4">
+    <p class="text-xs text-white/40 uppercase tracking-wider">
+      Education & disability
+    </p>
+    <a href="{% url 'admissions:application_step' applicant.pk 3 %}"
+       class="text-xs text-brand-teal hover:underline">Edit</a>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {% include 'admissions/includes/review_field.html' with label="School" value=applicant.school_name %}
+    {% include 'admissions/includes/review_field.html' with label="Last school year" value=applicant.last_school_year %}
+    {% include 'admissions/includes/review_field.html' with label="Disability status" value=applicant.disability_status|default:"None disclosed" %}
+    {% include 'admissions/includes/review_field.html' with label="POPIA consent" value=applicant.popi_consent|yesno:"Yes,No" %}
+  </div>
+</div>
+
+<!-- Next of Kin -->
+{% if contact %}
+<div class="rounded-2xl p-6 mb-6"
+     style="background: rgba(255,255,255,0.05);">
+  <div class="flex justify-between items-center mb-4">
+    <p class="text-xs text-white/40 uppercase tracking-wider">
+      Next of kin
+    </p>
+    <a href="{% url 'admissions:application_step' applicant.pk 4 %}"
+       class="text-xs text-brand-teal hover:underline">Edit</a>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {% include 'admissions/includes/review_field.html' with label="Name" value=contact %}
+    {% include 'admissions/includes/review_field.html' with label="Relationship" value=contact.relationship %}
+    {% include 'admissions/includes/review_field.html' with label="Cell" value=contact.cell %}
+    {% include 'admissions/includes/review_field.html' with label="Work phone" value=contact.work_phone|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Email" value=contact.email|default:"—" %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Submit -->
+<div class="flex justify-between items-center">
+  <a href="{% url 'admissions:application_step' applicant.pk 4 %}"
+     class="text-sm text-white/40 hover:text-white/70 transition-colors">
+    ← Back
+  </a>
+    <form method="post"
+        action="{% url 'admissions:application_submit' applicant.pk %}">
+    {% csrf_token %}
+    <button type="submit"
+            class="px-6 py-2 rounded-lg text-sm font-semibold
+                   bg-brand-teal text-brand-navy hover:opacity-90
+                   transition-opacity">
+      Submit for approval
+    </button>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,42 @@
+[
+  {
+    "model": "academics.campus",
+    "pk": 1,
+    "fields": {
+      "campus_name": "Durban",
+      "campus_code": "DBN",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "academics.campus",
+    "pk": 2,
+    "fields": {
+      "campus_name": "Pietermaritzburg",
+      "campus_code": "PMB",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "academics.program",
+    "pk": 1,
+    "fields": {
+      "program_name": "Cyber Security",
+      "program_code": "CYB",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "academics.program",
+    "pk": 2,
+    "fields": {
+      "program_name": "Software Development",
+      "program_code": "SFTW",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]

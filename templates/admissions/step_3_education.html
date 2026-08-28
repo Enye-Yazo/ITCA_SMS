@@ -1,0 +1,68 @@
+<!-- templates/admissions/step_3_education.html -->
+{% extends 'admissions/base_form.html' %}
+
+{% block form_content %}
+<form method="post">
+  {% csrf_token %}
+
+  <div class="rounded-2xl p-6 mb-4"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Education
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      {% include 'admissions/includes/form_field.html' with field=form.school_name %}
+      {% include 'admissions/includes/form_field.html' with field=form.last_school_year %}
+    </div>
+
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Disability status
+    </p>
+
+    <div class="mb-6">
+      {% include 'admissions/includes/form_field.html' with field=form.disability_status %}
+      <p class="text-xs text-white/30 mt-1">
+        Leave blank if not applicable.
+      </p>
+    </div>
+
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      POPIA consent
+    </p>
+
+    <!-- Checkbox styled separately -->
+    <label class="flex items-start gap-3 cursor-pointer">
+      {{ form.popi_consent }}
+      <span class="text-sm text-white/70 leading-relaxed">
+        {{ form.popi_consent.label }}
+      </span>
+    </label>
+    <p class="text-xs text-white/30 mt-2 ml-6">
+      Consent is optional and does not affect the application.
+    </p>
+  </div>
+
+  <div class="flex justify-between items-center">
+    <a href="{% url 'admissions:application_step' applicant.pk 2 %}"
+       class="text-sm text-white/40 hover:text-white/70 transition-colors">
+      ← Back
+    </a>
+    <div class="flex gap-3">
+      <button type="submit" name="action" value="draft"
+              class="px-4 py-2 rounded-lg text-sm text-white/60
+                     hover:text-white transition-colors"
+              style="background: rgba(255,255,255,0.08);">
+        Save draft
+      </button>
+      <button type="submit"
+              class="px-5 py-2 rounded-lg text-sm font-semibold
+                     bg-brand-teal text-brand-navy hover:opacity-90
+                     transition-opacity">
+        Next — Next of kin →
+      </button>
+    </div>
+  </div>
+
+</form>
+{% endblock %}

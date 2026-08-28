@@ -1,0 +1,82 @@
+<!-- templates/base.html -->
+<!-- Every page in the portal extends this template -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ITCA Student Management{% endblock %}</title>
+
+  <!-- Google Fonts — Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Compiled Tailwind CSS -->
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/output.css' %}" />
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body class="min-h-screen">
+
+  <!-- ── Top Navigation ───────────────────────────────────────────────── -->
+  <nav style="background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.1);">
+    <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
+
+      <!-- Logo and Portal Name -->
+      <div class="flex items-center gap-3">
+        <img
+          src="{% static 'images/logo.png' %}"
+          alt="ITCA Logo"
+          class="h-8 w-auto"
+        />
+      </div>
+
+      <!-- Navigation Links — shown based on user role -->
+      <div class="flex items-center gap-8 text-sm font-medium">
+        <a href="{% url 'dashboard:index' %}"
+           class="text-white hover:text-brand-teal transition-colors">
+          Dashboard
+        </a>
+
+        {% if request.user.is_exec_admin or request.user.is_trainer %}
+        <a href="/students/" class="text-white/60 hover:text-white transition-colors">
+          Students
+        </a>
+        {% endif %}
+
+        {% if request.user.is_exec_admin %}
+        <a href="#" class="text-white/60 hover:text-white transition-colors">
+          Programs
+        </a>
+        <a href="{% url 'academics:settings' %}" class="text-white/60 hover:text-white transition-colors">
+          Settings
+        </a>
+        {% endif %}
+      </div>
+
+      <!-- User Info and Logout -->
+      <div class="flex items-center gap-4 text-sm">
+        <span class="text-white/60">
+          {{ request.user.full_name }}
+        </span>
+        <a href="{% url 'oidc_logout' %}"
+           class="text-white/60 hover:text-white transition-colors">
+          Sign out
+        </a>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- ── Page Content ──────────────────────────────────────────────────── -->
+  <main class="max-w-screen-xl mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

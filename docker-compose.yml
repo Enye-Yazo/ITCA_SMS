@@ -1,0 +1,20 @@
+# docker-compose.yml
+
+services:
+  db:
+    image: postgres:16
+    container_name: itca_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: itca_db
+      POSTGRES_USER: itca_user
+      POSTGRES_PASSWORD: itca_password
+    ports:
+      # 5433 on your machine maps to 5432 inside the container
+      # Avoids conflict with your locally installed PostgreSQL
+      - "5433:5432"
+    volumes:
+      - itca_db_data:/var/lib/postgresql/data
+
+volumes:
+  itca_db_data:

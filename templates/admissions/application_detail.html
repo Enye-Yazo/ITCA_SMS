@@ -1,0 +1,190 @@
+<!-- templates/admissions/application_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ applicant.full_name }} — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<div class="mb-6">
+  <a href="{% url 'admissions:application_list' %}"
+     class="text-sm text-white/40 hover:text-white/70 transition-colors">
+    ← Applications
+  </a>
+  <div class="flex items-center justify-between mt-2">
+    <div>
+      <h1 class="text-2xl font-bold">{{ applicant.full_name }}</h1>
+      <p class="text-white/40 text-sm mt-1">{{ applicant.application_reference }}</p>
+    </div>
+    <span class="text-xs px-3 py-1 rounded-full font-medium
+      {% if applicant.application_status == 'Approved' %}
+        bg-brand-teal/15 text-brand-teal
+      {% elif applicant.application_status == 'Rejected' %}
+        bg-red-500/15 text-red-400
+      {% else %}
+        bg-amber-500/15 text-amber-400
+      {% endif %}">
+      {{ applicant.application_status }}
+    </span>
+  </div>
+</div>
+
+<!-- ── Messages ──────────────────────────────────────────────────────────── -->
+{% if messages %}
+{% for message in messages %}
+<div class="rounded-xl p-4 mb-4 text-sm
+  {% if message.tags == 'error' %}
+    bg-red-500/10 border border-red-500/30 text-red-400
+  {% elif message.tags == 'warning' %}
+    bg-amber-500/10 border border-amber-500/30 text-amber-400
+  {% else %}
+    bg-brand-teal/10 border border-brand-teal/30 text-brand-teal
+  {% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ── Capacity Warning ───────────────────────────────────────────────────── -->
+{% if not active_class %}
+<div class="rounded-xl p-4 mb-6"
+     style="background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.3);">
+  <p class="text-red-400 font-semibold text-sm mb-1">
+    ⚠ No active class found
+  </p>
+  <p class="text-white/60 text-sm">
+    There is no active class for {{ applicant.program.program_name }}
+    at {{ applicant.campus.campus_name }} for the current year.
+    Create a class in Settings before approving this application.
+  </p>
+</div>
+{% elif remaining_capacity == 0 %}
+<div class="rounded-xl p-4 mb-6"
+     style="background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.3);">
+  <p class="text-red-400 font-semibold text-sm mb-1">
+    ⚠ Class at capacity
+  </p>
+  <p class="text-white/60 text-sm">
+    {{ active_class }} is full ({{ active_class.capacity }} students).
+    Increase the class capacity or create a new class before approving.
+  </p>
+</div>
+{% elif remaining_capacity <= 5 %}
+<div class="rounded-xl p-4 mb-6"
+     style="background: rgba(251,191,36,0.1);
+            border: 1px solid rgba(251,191,36,0.2);">
+  <p class="text-amber-400 font-semibold text-sm">
+    ⚠ {{ remaining_capacity }} spot{{ remaining_capacity|pluralize }}
+    remaining in {{ active_class }}
+  </p>
+</div>
+{% endif %}
+
+<!-- ── Applicant Details ──────────────────────────────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+  <!-- Personal -->
+  <div class="rounded-2xl p-6"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Personal details
+    </p>
+    <div class="grid grid-cols-2 gap-3">
+      {% include 'admissions/includes/review_field.html' with label="Campus" value=applicant.campus %}
+      {% include 'admissions/includes/review_field.html' with label="Program" value=applicant.program %}
+      {% include 'admissions/includes/review_field.html' with label="Date of birth" value=applicant.date_of_birth %}
+      {% include 'admissions/includes/review_field.html' with label="ID type" value=applicant.get_id_type_display %}
+      {% include 'admissions/includes/review_field.html' with label="ID number" value=applicant.id_number %}
+      {% include 'admissions/includes/review_field.html' with label="Gender" value=applicant.gender %}
+      {% include 'admissions/includes/review_field.html' with label="Nationality" value=applicant.nationality %}
+      {% include 'admissions/includes/review_field.html' with label="Residential status" value=applicant.get_residential_status_display %}
+      {% include 'admissions/includes/review_field.html' with label="POPIA consent" value=applicant.popi_consent|yesno:"Yes,No" %}
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <div class="rounded-2xl p-6"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Contact & address
+    </p>
+    <div class="grid grid-cols-2 gap-3">
+      {% include 'admissions/includes/review_field.html' with label="Email" value=applicant.personal_email %}
+      {% include 'admissions/includes/review_field.html' with label="Phone" value=applicant.phone %}
+      {% include 'admissions/includes/review_field.html' with label="Address" value=applicant.residential_address %}
+      {% include 'admissions/includes/review_field.html' with label="City" value=applicant.city %}
+      {% include 'admissions/includes/review_field.html' with label="Province" value=applicant.province %}
+      {% include 'admissions/includes/review_field.html' with label="Postal code" value=applicant.postal_code %}
+    </div>
+  </div>
+
+  <!-- Education -->
+  <div class="rounded-2xl p-6"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Education & disability
+    </p>
+    <div class="grid grid-cols-2 gap-3">
+      {% include 'admissions/includes/review_field.html' with label="School" value=applicant.school_name %}
+      {% include 'admissions/includes/review_field.html' with label="Last school year" value=applicant.last_school_year %}
+      {% include 'admissions/includes/review_field.html' with label="Disability status" value=applicant.disability_status|default:"None disclosed" %}
+    </div>
+  </div>
+
+  <!-- Next of Kin -->
+  {% if contact %}
+  <div class="rounded-2xl p-6"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Next of kin
+    </p>
+    <div class="grid grid-cols-2 gap-3">
+      {% include 'admissions/includes/review_field.html' with label="Name" value=contact %}
+      {% include 'admissions/includes/review_field.html' with label="Relationship" value=contact.relationship %}
+      {% include 'admissions/includes/review_field.html' with label="Cell" value=contact.cell %}
+      {% include 'admissions/includes/review_field.html' with label="Work phone" value=contact.work_phone|default:"—" %}
+      {% include 'admissions/includes/review_field.html' with label="Email" value=contact.email|default:"—" %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ── Actions ────────────────────────────────────────────────────────────── -->
+{% if applicant.application_status == 'Pending' %}
+<div class="flex justify-end gap-3 mt-6">
+
+  <!-- Reject -->
+  <form method="post"
+        action="{% url 'admissions:application_reject' applicant.pk %}">
+    {% csrf_token %}
+    <button type="submit"
+            onclick="return confirm('Reject this application? This cannot be undone.')"
+            class="px-5 py-2 rounded-lg text-sm font-medium
+                   text-red-400 hover:text-red-300 transition-colors"
+            style="background: rgba(248,113,113,0.1);
+                   border: 1px solid rgba(248,113,113,0.2);">
+      Reject application
+    </button>
+  </form>
+
+  <!-- Approve -->
+  {% if active_class and remaining_capacity > 0 %}
+  <form method="post"
+        action="{% url 'admissions:application_approve' applicant.pk %}">
+    {% csrf_token %}
+    <button type="submit"
+            class="px-5 py-2 rounded-lg text-sm font-semibold
+                   bg-brand-teal text-brand-navy hover:opacity-90
+                   transition-opacity">
+      ✓ Approve and register
+    </button>
+  </form>
+  {% endif %}
+
+</div>
+{% endif %}
+
+{% endblock %}

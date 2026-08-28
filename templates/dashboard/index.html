@@ -1,0 +1,235 @@
+<!-- templates/dashboard/index.html -->
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ───────────────────────────────────────────────────────── -->
+<div class="mb-8">
+  <h1 class="text-2xl font-bold">Dashboard</h1>
+  <p class="text-white/50 text-sm mt-1">
+    Welcome back, {{ request.user.first_name }}
+  </p>
+</div>
+
+<!-- ── Stat Cards ────────────────────────────────────────────────────────── -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">
+      Pending Applications
+    </span>
+    <span class="text-3xl font-bold">{{ stats.pending_applications }}</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">
+      New Registrations
+    </span>
+    <span class="text-3xl font-bold">{{ stats.new_registrations }}</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">
+      Active Students
+    </span>
+    <span class="text-3xl font-bold">{{ stats.active_students }}</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">
+      Software Development
+    </span>
+    <span class="text-3xl font-bold">{{ stats.sftw_students }}</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">
+      Cyber Security
+    </span>
+    <span class="text-3xl font-bold">{{ stats.cyb_students }}</span>
+  </div>
+
+</div>
+
+<!-- ── Main Content Grid ─────────────────────────────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Student Data Table — takes up 2/3 of the width -->
+  <div class="lg:col-span-2 rounded-2xl p-6"
+       style="background: rgba(255,255,255,0.05);">
+
+    <!-- Table Header -->
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-lg">Student Data</h2>
+      <span class="text-xs px-3 py-1 rounded-full"
+            style="background: rgba(255,255,255,0.1);">
+        ● Live
+      </span>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex items-center gap-2 mb-4 text-white/70">
+      <span class="text-xs text-white/40">Filter by:</span>
+
+      <!-- Program Filter -->
+      <select id="programFilter"
+              class="filter-pill border-0 bg-transparent text-white text-xs"
+              onchange="filterTable()">
+        <option value="all">All Programs</option>
+        {% for program in programs %}
+        <option value="{{ program.program_code }}">
+          {{ program.program_code }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <!-- Trainer Filter -->
+      <select id="trainerFilter"
+              class="filter-pill border-0 bg-transparent text-white text-xs"
+              onchange="filterTable()">
+        <option value="all">All Trainers</option>
+        {% for trainer in trainers %}
+        <option value="{{ trainer.id }}">
+          {{ trainer.full_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="dash-table" id="studentTable">
+        <thead>
+          <tr>
+            <th>Program</th>
+            <th>Trainer</th>
+            <th>Student</th>
+            <th class="text-right">NQF 5</th>
+            <th class="text-right">Int Cert</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in student_rows %}
+          <tr data-program="{{ row.program_code }}"
+              data-trainer="{{ row.trainer_id }}">
+
+            <td class="font-semibold text-xs">
+              {{ row.program_code }}
+            </td>
+
+            <td class="text-white/70">
+              {{ row.trainer_name }}
+            </td>
+
+            <td>{{ row.student_name }}</td>
+
+            <!-- NQF5 score coloured by threshold -->
+            <td class="text-right">
+              {% if row.nqf5_score is not None %}
+                <span class="
+                  {% if row.nqf5_score >= 80 %}score-high
+                  {% elif row.nqf5_score >= 60 %}score-mid
+                  {% else %}score-low{% endif %}
+                ">
+                  {{ row.nqf5_score }}
+                </span>
+              {% else %}
+                <span class="text-white/30">—</span>
+              {% endif %}
+            </td>
+
+            <!-- International cert score coloured by threshold -->
+            <td class="text-right">
+              {% if row.int_score is not None %}
+                <span class="
+                  {% if row.int_score >= 80 %}score-high
+                  {% elif row.int_score >= 60 %}score-mid
+                  {% else %}score-low{% endif %}
+                ">
+                  {{ row.int_score }}
+                </span>
+              {% else %}
+                <span class="text-white/30">—</span>
+              {% endif %}
+            </td>
+
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-white/40 py-8">
+              No students found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pass Rate Panel — takes up 1/3 of the width -->
+  <div class="rounded-2xl p-6"
+       style="background: rgba(255,255,255,0.05);">
+
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="font-semibold text-lg">Pass Rate</h2>
+      <span class="text-xs px-3 py-1 rounded-full"
+            style="background: rgba(255,255,255,0.1);">
+        ✓ {{ stats.pass_rate }}%
+      </span>
+    </div>
+
+    <!-- Donut Chart using SVG -->
+    <div class="flex justify-center mb-6">
+      {% include 'includes/donut_chart.html' with pass_rate=stats.pass_rate %}
+    </div>
+
+    <!-- Legend -->
+    <div class="flex justify-center gap-6 text-sm mb-6">
+      <span class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-cyan-400 inline-block"></span>
+        Passes <strong>{{ stats.pass_rate }}%</strong>
+      </span>
+      <span class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-red-400 inline-block"></span>
+        Fails <strong>{{ stats.fail_rate }}%</strong>
+      </span>
+    </div>
+
+    <!-- Performance Alert -->
+    {% if stats.pass_rate < 85 %}
+    <div class="rounded-xl p-4"
+         style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2);">
+      <p class="text-amber-400 text-xs font-semibold mb-1">
+        ⚠ Performance Below Target
+      </p>
+      <p class="text-white/60 text-xs leading-relaxed">
+        Overall pass rate of {{ stats.pass_rate }}% is below the 85%
+        institutional target. Immediate intervention is recommended
+        for students scoring below 70 in NQF 5 assessments.
+      </p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ── Client-side table filtering ──────────────────────────────────────────
+  function filterTable() {
+    const program = document.getElementById('programFilter').value;
+    const trainer = document.getElementById('trainerFilter').value;
+    const rows = document.querySelectorAll('#studentTable tbody tr[data-program]');
+
+    rows.forEach(row => {
+      const matchProgram = program === 'all' || row.dataset.program === program;
+      const matchTrainer = trainer === 'all' || row.dataset.trainer === trainer;
+      row.style.display = matchProgram && matchTrainer ? '' : 'none';
+    });
+  }
+</script>
+{% endblock %}

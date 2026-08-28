@@ -1,0 +1,52 @@
+<!-- templates/admissions/step_4_next_of_kin.html -->
+{% extends 'admissions/base_form.html' %}
+
+{% block form_content %}
+<form method="post">
+  {% csrf_token %}
+
+  <div class="rounded-2xl p-6 mb-4"
+       style="background: rgba(255,255,255,0.05);">
+    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+      Next of kin / emergency contact
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      {% include 'admissions/includes/form_field.html' with field=form.first_name %}
+      {% include 'admissions/includes/form_field.html' with field=form.last_name %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {% include 'admissions/includes/form_field.html' with field=form.relationship %}
+      {% include 'admissions/includes/form_field.html' with field=form.cell %}
+      {% include 'admissions/includes/form_field.html' with field=form.work_phone %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% include 'admissions/includes/form_field.html' with field=form.email %}
+    </div>
+  </div>
+
+  <div class="flex justify-between items-center">
+    <a href="{% url 'admissions:application_step' applicant.pk 3 %}"
+       class="text-sm text-white/40 hover:text-white/70 transition-colors">
+      ← Back
+    </a>
+    <div class="flex gap-3">
+      <button type="submit" name="action" value="draft"
+              class="px-4 py-2 rounded-lg text-sm text-white/60
+                     hover:text-white transition-colors"
+              style="background: rgba(255,255,255,0.08);">
+        Save draft
+      </button>
+      <button type="submit"
+              class="px-5 py-2 rounded-lg text-sm font-semibold
+                     bg-brand-teal text-brand-navy hover:opacity-90
+                     transition-opacity">
+        Next — Review →
+      </button>
+    </div>
+  </div>
+
+</form>
+{% endblock %}
