@@ -1,0 +1,117 @@
+<!-- templates/admissions/student_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Students — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">Students</h1>
+    <p class="text-white/40 text-sm mt-1">
+      {{ rows|length }} student{{ rows|length|pluralize }}
+    </p>
+  </div>
+  {% if request.user.is_exec_admin %}
+  <a href="{% url 'admissions:student_export' %}?{{ request.GET.urlencode }}"
+     class="px-5 py-2 rounded-lg text-sm font-semibold
+            bg-brand-teal text-brand-navy hover:opacity-90 transition-opacity">
+    Export to Excel
+  </a>
+  {% endif %}
+</div>
+
+<!-- ── Filters ───────────────────────────────────────────────────────────── -->
+<form method="get" class="flex flex-wrap items-center gap-3 mb-6">
+
+  <input type="text" name="q" value="{{ filters.q }}"
+         placeholder="Search by Student ID…"
+         class="filter-pill border-0 bg-transparent text-white text-xs placeholder-white/40">
+
+  <select name="campus" onchange="this.form.submit()"
+          class="filter-pill border-0 bg-transparent text-white text-xs">
+    <option value="all" {% if filters.campus == 'all' %}selected{% endif %}>All Campuses</option>
+    {% for campus in campuses %}
+    <option value="{{ campus.id }}" {% if filters.campus == campus.id|stringformat:'s' %}selected{% endif %}>
+      {{ campus.campus_code }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="program" onchange="this.form.submit()"
+          class="filter-pill border-0 bg-transparent text-white text-xs">
+    <option value="all" {% if filters.program == 'all' %}selected{% endif %}>All Programs</option>
+    {% for program in programs %}
+    <option value="{{ program.id }}" {% if filters.program == program.id|stringformat:'s' %}selected{% endif %}>
+      {{ program.program_code }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="cohort" onchange="this.form.submit()"
+          class="filter-pill border-0 bg-transparent text-white text-xs">
+    <option value="all" {% if filters.cohort == 'all' %}selected{% endif %}>All Cohorts</option>
+    {% for value, label in cohort_choices %}
+    <option value="{{ value }}" {% if filters.cohort == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  {% if trainers is not None %}
+  <select name="trainer" onchange="this.form.submit()"
+          class="filter-pill border-0 bg-transparent text-white text-xs">
+    <option value="all" {% if filters.trainer == 'all' %}selected{% endif %}>All Trainers</option>
+    {% for trainer in trainers %}
+    <option value="{{ trainer.id }}" {% if filters.trainer == trainer.id|stringformat:'s' %}selected{% endif %}>
+      {{ trainer.full_name }}
+    </option>
+    {% endfor %}
+  </select>
+  {% endif %}
+
+  <button type="submit" class="filter-pill text-xs font-semibold"
+          style="background: rgba(0,191,165,0.15); color: #00BFA5;">
+    Apply
+  </button>
+</form>
+
+<!-- ── Student List ─────────────────────────────────────────────────────── -->
+<div class="rounded-2xl overflow-hidden glass">
+
+  {% for row in rows %}
+  <a href="{% url 'admissions:student_detail' row.student.pk %}"
+     class="flex items-center justify-between px-6 py-4
+            hover:bg-white/5 transition-colors
+            {% if not forloop.last %}border-b border-white/5{% endif %}">
+
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center
+                  text-sm font-semibold flex-shrink-0"
+           style="background: rgba(26,115,232,0.2); color: #1A73E8;">
+        {{ row.student.applicant.first_name.0 }}{{ row.student.applicant.last_name.0 }}
+      </div>
+      <div>
+        <p class="font-medium text-sm">{{ row.student.full_name }}</p>
+        <p class="text-white/40 text-xs mt-0.5">
+          {{ row.student.student_id_code }} ·
+          {{ row.student.program.program_code }} ·
+          {{ row.student.campus.campus_code }} ·
+          {{ row.cohort }}
+        </p>
+      </div>
+    </div>
+
+    <span class="text-white/50 text-xs">
+      Trainer: {{ row.student.trainer.full_name|default:"Unassigned" }}
+    </span>
+
+  </a>
+  {% empty %}
+  <div class="px-6 py-12 text-center text-white/30 text-sm">
+    No students found.
+  </div>
+  {% endfor %}
+
+</div>
+
+{% endblock %}

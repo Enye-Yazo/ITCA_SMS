@@ -47,4 +47,21 @@ urlpatterns = [
         views.application_submit,
         name='application_submit'
     ),
+
+    # Exec Admin / Trainer — student list and detail
+    path(
+        'students/',
+        views.student_list,
+        name='student_list'
+    ),
+    path(
+        'students/export/',
+        views.student_export,
+        name='student_export'
+    ),
+    path(
+        'students/<int:student_id>/',
+        views.student_detail,
+        name='student_detail'
+    ),
 ]

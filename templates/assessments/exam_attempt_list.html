@@ -1,0 +1,99 @@
+<!-- templates/assessments/exam_attempt_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}International Exams — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">International Exam Attempts</h1>
+    <p class="text-white/40 text-sm mt-1">
+      {{ attempts.count }} attempt{{ attempts.count|pluralize }} recorded
+    </p>
+  </div>
+  <a href="{% url 'assessments:exam_attempt_record' %}"
+     class="px-5 py-2 rounded-lg text-sm font-semibold
+            bg-brand-teal text-brand-navy hover:opacity-90 transition-opacity">
+    + Record attempt
+  </a>
+</div>
+
+<!-- ── Messages ──────────────────────────────────────────────────────────── -->
+{% if messages %}
+{% for message in messages %}
+<div class="rounded-xl p-4 mb-4 text-sm
+  {% if message.tags == 'error' %}
+    bg-red-500/10 border border-red-500/30 text-red-400
+  {% else %}
+    bg-brand-teal/10 border border-brand-teal/30 text-brand-teal
+  {% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ── Filters ───────────────────────────────────────────────────────────── -->
+<form method="get" class="flex flex-wrap items-center gap-3 mb-6">
+  <select name="module" onchange="this.form.submit()"
+          class="filter-pill border-0 bg-transparent text-white text-xs">
+    <option value="all" {% if filters.module == 'all' %}selected{% endif %}>All Modules</option>
+    {% for module in modules %}
+    <option value="{{ module.module_code }}" {% if filters.module == module.module_code %}selected{% endif %}>
+      {{ module.module_code }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="result" onchange="this.form.submit()"
+          class="filter-pill border-0 bg-transparent text-white text-xs">
+    <option value="all" {% if filters.result == 'all' %}selected{% endif %}>All Results</option>
+    <option value="passed" {% if filters.result == 'passed' %}selected{% endif %}>Passed</option>
+    <option value="failed" {% if filters.result == 'failed' %}selected{% endif %}>Failed</option>
+  </select>
+</form>
+
+<!-- ── Attempts Table ────────────────────────────────────────────────────── -->
+<div class="rounded-2xl p-6 glass">
+  <div class="overflow-x-auto">
+    <table class="dash-table w-full">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Name</th>
+          <th>Module</th>
+          <th class="text-right">Attempt #</th>
+          <th>Date</th>
+          <th>Result</th>
+          <th class="text-right">Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for attempt in attempts %}
+        <tr>
+          <td class="font-semibold text-xs">{{ attempt.student_module.student.student_id_code }}</td>
+          <td>{{ attempt.student_module.student.full_name }}</td>
+          <td class="text-white/70">{{ attempt.student_module.module.module_code }}</td>
+          <td class="text-right text-white/70">{{ attempt.attempt_number }}</td>
+          <td class="text-white/70">{{ attempt.exam_date }}</td>
+          <td>
+            {% if attempt.exam_result %}
+              <span class="score-high">Passed</span>
+            {% else %}
+              <span class="score-low">Failed</span>
+            {% endif %}
+          </td>
+          <td class="text-right text-white/70">{{ attempt.score|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-white/40 py-8">No exam attempts recorded yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

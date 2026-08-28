@@ -1,0 +1,49 @@
+<!-- templates/assessments/exam_attempt_form.html -->
+{% extends 'base.html' %}
+
+{% block title %}Record Exam Attempt — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<div class="max-w-xl mx-auto">
+
+  <a href="{% url 'assessments:exam_attempt_list' %}"
+     class="text-sm text-white/40 hover:text-white/70 transition-colors">
+    ← International Exam Attempts
+  </a>
+  <h1 class="text-2xl font-bold mt-2 mb-6">Record Exam Attempt</h1>
+
+  {% if messages %}
+  {% for message in messages %}
+  <div class="rounded-xl p-4 mb-4 text-sm bg-red-500/10 border border-red-500/30 text-red-400">
+    {{ message }}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="rounded-2xl p-6 mb-4 flex flex-col gap-4 glass">
+      {% include 'admissions/includes/form_field.html' with field=form.student_module %}
+      {% include 'admissions/includes/form_field.html' with field=form.exam_date %}
+      {% include 'admissions/includes/form_field.html' with field=form.exam_result %}
+      {% include 'admissions/includes/form_field.html' with field=form.score %}
+    </div>
+
+    <div class="flex justify-between items-center">
+      <a href="{% url 'assessments:exam_attempt_list' %}"
+         class="text-sm text-white/40 hover:text-white/70 transition-colors">
+        Cancel
+      </a>
+      <button type="submit"
+              class="px-5 py-2 rounded-lg text-sm font-semibold
+                     bg-brand-teal text-brand-navy hover:opacity-90 transition-opacity">
+        Save attempt
+      </button>
+    </div>
+  </form>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,103 @@
+<!-- templates/assessments/promotion_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Promotions — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-bold">Promotions</h1>
+  <p class="text-white/40 text-sm mt-1">
+    {% if request.user.is_exec_admin %}
+      Review and approve promotion requests from trainers.
+    {% else %}
+      Your submitted promotion requests.
+    {% endif %}
+  </p>
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="rounded-xl p-4 mb-4 text-sm
+  {% if message.tags == 'error' %}
+    bg-red-500/10 border border-red-500/30 text-red-400
+  {% elif message.tags == 'warning' %}
+    bg-amber-500/10 border border-amber-500/30 text-amber-400
+  {% else %}
+    bg-brand-teal/10 border border-brand-teal/30 text-brand-teal
+  {% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="rounded-2xl p-6 glass">
+  <div class="overflow-x-auto">
+    <table class="dash-table w-full">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Requested By</th>
+          <th>Requested</th>
+          <th>Status</th>
+          {% if request.user.is_exec_admin %}<th class="text-right">Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for promotion in promotions %}
+        <tr>
+          <td class="font-semibold text-xs">
+            {{ promotion.current_enrollment.student.full_name }}
+          </td>
+          <td class="text-white/70">{{ promotion.current_enrollment.class_group }}</td>
+          <td class="text-white/70">{{ promotion.target_class }}</td>
+          <td class="text-white/70">{{ promotion.requested_by.full_name }}</td>
+          <td class="text-white/70">{{ promotion.request_date }}</td>
+          <td>
+            <span class="text-xs px-3 py-1 rounded-full font-medium
+              {% if promotion.status == 'Approved' %}
+                bg-brand-teal/15 text-brand-teal
+              {% elif promotion.status == 'Rejected' %}
+                bg-red-500/15 text-red-400
+              {% else %}
+                bg-amber-500/15 text-amber-400
+              {% endif %}">
+              {{ promotion.status }}
+            </span>
+          </td>
+          {% if request.user.is_exec_admin %}
+          <td class="text-right">
+            {% if promotion.status == 'Pending' %}
+            <div class="flex justify-end gap-2">
+              <form method="post" action="{% url 'assessments:promotion_approve' promotion.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-brand-teal/15 text-brand-teal hover:opacity-80">
+                  Approve
+                </button>
+              </form>
+              <form method="post" action="{% url 'assessments:promotion_reject' promotion.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-red-500/15 text-red-400 hover:opacity-80">
+                  Reject
+                </button>
+              </form>
+            </div>
+            {% else %}
+              <span class="text-white/30 text-xs">{{ promotion.reviewed_by.full_name|default:"—" }}</span>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-white/40 py-8">No promotion requests found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

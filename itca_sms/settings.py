@@ -93,8 +93,10 @@ AUTH_USER_MODEL = 'accounts.SystemUser'
 AUTHENTICATION_BACKENDS = [
     # Allows Django admin login with email and password
     'django.contrib.auth.backends.ModelBackend',
-    # Handles Microsoft Entra ID SSO for regular users
-    'mozilla_django_oidc.auth.OIDCAuthenticationBackend',
+    # Handles Microsoft Entra ID SSO for regular users — our own subclass,
+    # since the default backend's create_user() doesn't match our custom
+    # SystemUserManager signature (see accounts/auth.py).
+    'accounts.auth.ITCAOIDCAuthenticationBackend',
 ]
 
 TENANT_ID = config('AZURE_AD_TENANT_ID', default='')
@@ -110,10 +112,21 @@ OIDC_OP_TOKEN_ENDPOINT = f'https://login.microsoftonline.com/{TENANT_ID}/oauth2/
 OIDC_OP_USER_ENDPOINT = 'https://graph.microsoft.com/oidc/userinfo'
 OIDC_OP_JWKS_ENDPOINT = f'https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys'
 
-# Where to send users after login and logout
-LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/login/'
+# Where to send users after login and logout.
+# LOGIN_REDIRECT_URL and LOGOUT_REDIRECT_URL both point at the landing
+# page ('/'), which routes an authenticated user straight to the page
+# appropriate for their role (accounts.views.landing) — a logged-out
+# visitor sees the "Sign in with Microsoft" screen there instead.
+# LOGIN_URL goes straight into the Microsoft sign-in redirect, since a
+# deep link hit while logged out (e.g. a bookmarked page) should not
+# have to bounce through the landing page first.
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/oidc/authenticate/'
+
+# The nav's "Sign out" link is a plain GET <a> tag, not a POST form —
+# mozilla-django-oidc's logout view otherwise only accepts POST.
+ALLOW_LOGOUT_GET_METHOD = True
 
 
 # ─── Password Validation ──────────────────────────────────────────────────────

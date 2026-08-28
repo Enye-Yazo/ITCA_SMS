@@ -42,7 +42,7 @@
   <!-- Centre label -->
   <div class="absolute inset-0 flex flex-col items-center justify-center">
     <span class="text-3xl font-bold">{{ pass_rate }}%</span>
-    <span class="text-white/50 text-xs">Passing</span>
+    <span class="text-white/50 text-xs">{% firstof label "Passing" %}</span>
   </div>
 </div>
 {% endwith %}

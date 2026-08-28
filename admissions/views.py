@@ -11,8 +11,9 @@ from .forms import (
     PersonalDetailsForm, ContactAddressForm,
     EducationDisabilityForm, NextOfKinForm
 )
-from academics.models import Class, Enrollment
-from assessments.models import Promotion
+from academics.models import Campus, Program, Class, Enrollment
+from accounts.models import SystemUser, UserRole
+from assessments.models import Promotion, StudentModule, InternationalExamAttempt
 
 
 # ─── Step configuration ───────────────────────────────────────────────────────
@@ -362,3 +363,200 @@ def application_submit(request, applicant_id):
     )
 
     return redirect('admissions:application_list')
+
+
+# ─── Student List ─────────────────────────────────────────────────────────────
+def _filtered_student_rows(request):
+    """
+    Shared filtering logic for the student list page and the Excel export,
+    so the two always agree on which students match the current filters.
+    Exec Admin sees every student. Trainers see only their own.
+    Returns a list of {'student': Student, 'cohort': str, 'enrollment': Enrollment|None}.
+    """
+    students = Student.objects.select_related(
+        'applicant', 'applicant__campus', 'applicant__program', 'trainer'
+    ).prefetch_related('enrollments__class_group')
+
+    if request.user.is_trainer:
+        students = students.filter(trainer=request.user)
+
+    campus_id = request.GET.get('campus', 'all')
+    program_id = request.GET.get('program', 'all')
+    cohort = request.GET.get('cohort', 'all')
+    trainer_id = request.GET.get('trainer', 'all')
+    search = request.GET.get('q', '').strip()
+
+    if campus_id != 'all':
+        students = students.filter(applicant__campus_id=campus_id)
+    if program_id != 'all':
+        students = students.filter(applicant__program_id=program_id)
+    if trainer_id != 'all' and request.user.is_exec_admin:
+        students = students.filter(trainer_id=trainer_id)
+    if search:
+        students = students.filter(student_id_code__icontains=search)
+
+    # Cohort lives on the student's most recent enrollment, so filter in Python
+    # once the queryset above has already narrowed things down.
+    rows = []
+    for student in students:
+        latest_enrollment = None
+        for enrollment in student.enrollments.all():
+            if latest_enrollment is None or enrollment.start_date > latest_enrollment.start_date:
+                latest_enrollment = enrollment
+        student_cohort = latest_enrollment.class_group.cohort if latest_enrollment else None
+
+        if cohort != 'all' and student_cohort != cohort:
+            continue
+
+        rows.append({
+            'student': student,
+            'cohort': student_cohort or '—',
+            'enrollment': latest_enrollment,
+        })
+
+    return rows
+
+
+@login_required
+def student_list(request):
+    """
+    Lists all registered students.
+    Filterable by campus, cohort, program and (for Exec Admin) trainer,
+    and searchable by student ID.
+    """
+    if not (request.user.is_exec_admin or request.user.is_trainer):
+        messages.error(request, "You do not have permission to view students.")
+        return redirect('dashboard:index')
+
+    campus_id = request.GET.get('campus', 'all')
+    program_id = request.GET.get('program', 'all')
+    cohort = request.GET.get('cohort', 'all')
+    trainer_id = request.GET.get('trainer', 'all')
+    search = request.GET.get('q', '').strip()
+
+    context = {
+        'rows': _filtered_student_rows(request),
+        'campuses': Campus.objects.filter(is_active=True),
+        'programs': Program.objects.filter(is_active=True),
+        'cohort_choices': Class.CohortChoices.choices,
+        'trainers': SystemUser.objects.filter(role=UserRole.TRAINER, is_active=True) if request.user.is_exec_admin else None,
+        'filters': {
+            'campus': campus_id,
+            'program': program_id,
+            'cohort': cohort,
+            'trainer': trainer_id,
+            'q': search,
+        },
+    }
+    return render(request, 'admissions/student_list.html', context)
+
+
+# ─── Student Excel Export ─────────────────────────────────────────────────────
+@login_required
+def student_export(request):
+    """
+    Exports the currently filtered student list to .xlsx.
+    Exec Admin only. Deliberately excludes LearningPlatformCredential and
+    AccessKey fields (username/password/key values) per SRD requirement 12 —
+    only academic and contact data is included.
+    """
+    if not request.user.is_exec_admin:
+        messages.error(request, "Only Exec Admins can export student data.")
+        return redirect('dashboard:index')
+
+    import openpyxl
+    from openpyxl.styles import Font
+    from django.http import HttpResponse
+
+    rows = _filtered_student_rows(request)
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Students"
+
+    headers = [
+        "Student ID", "Full Name", "Campus", "Program", "Cohort",
+        "Trainer", "Enrollment Status", "Enrollment Start Date",
+        "ID Number", "Personal Email", "Student Email", "Phone",
+        "Formative Average (%)", "Competent",
+    ]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for row in rows:
+        student = row['student']
+        enrollment = row['enrollment']
+        formative_average = student.formative_average
+
+        sheet.append([
+            student.student_id_code,
+            student.full_name,
+            student.campus.campus_name,
+            student.program.program_name,
+            row['cohort'],
+            student.trainer.full_name if student.trainer else '',
+            enrollment.status if enrollment else '',
+            enrollment.start_date.isoformat() if enrollment else '',
+            student.applicant.id_number,
+            student.applicant.personal_email or '',
+            student.student_email or '',
+            student.applicant.phone or '',
+            round(formative_average, 1) if formative_average is not None else '',
+            'Yes' if student.is_competent else 'No',
+        ])
+
+    for column_cells in sheet.columns:
+        length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in column_cells)
+        sheet.column_dimensions[column_cells[0].column_letter].width = min(length + 2, 40)
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"itca_students_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    workbook.save(response)
+    return response
+
+
+# ─── Student Detail ───────────────────────────────────────────────────────────
+@login_required
+def student_detail(request, student_id):
+    """
+    Full academic history for a single student:
+    modules, local assessments, international exam attempts,
+    enrollments and promotion history.
+    Exec Admin can view any student; a Trainer only their own.
+    """
+    if not (request.user.is_exec_admin or request.user.is_trainer):
+        messages.error(request, "You do not have permission to view students.")
+        return redirect('dashboard:index')
+
+    student = get_object_or_404(
+        Student.objects.select_related('applicant', 'applicant__campus', 'applicant__program', 'trainer'),
+        pk=student_id
+    )
+
+    if request.user.is_trainer and student.trainer_id != request.user.id:
+        messages.error(request, "You may only view your own students.")
+        return redirect('admissions:student_list')
+
+    student_modules = StudentModule.objects.select_related('module').prefetch_related(
+        'local_assessments', 'exam_attempts'
+    ).filter(student=student)
+
+    enrollments = student.enrollments.select_related('class_group').order_by('-start_date')
+    promotions = Promotion.objects.filter(
+        current_enrollment__student=student
+    ).select_related('target_class').order_by('-request_date')
+
+    active_enrollment = enrollments.filter(status=Enrollment.EnrollmentStatus.ACTIVE).first()
+
+    context = {
+        'student': student,
+        'student_modules': student_modules,
+        'enrollments': enrollments,
+        'promotions': promotions,
+        'active_enrollment': active_enrollment,
+    }
+    return render(request, 'admissions/student_detail.html', context)

@@ -23,7 +23,7 @@
 <body class="min-h-screen">
 
   <!-- ── Top Navigation ───────────────────────────────────────────────── -->
-  <nav style="background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.1);">
+  <nav class="glass-nav">
     <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
 
       <!-- Logo and Portal Name -->
@@ -37,14 +37,34 @@
 
       <!-- Navigation Links — shown based on user role -->
       <div class="flex items-center gap-8 text-sm font-medium">
+        {% if request.user.is_exec_admin %}
         <a href="{% url 'dashboard:index' %}"
            class="text-white hover:text-brand-teal transition-colors">
           Dashboard
         </a>
+        {% endif %}
 
         {% if request.user.is_exec_admin or request.user.is_trainer %}
-        <a href="/students/" class="text-white/60 hover:text-white transition-colors">
+        <a href="{% url 'admissions:student_list' %}" class="text-white/60 hover:text-white transition-colors">
           Students
+        </a>
+        {% endif %}
+
+        {% if request.user.is_trainer %}
+        <a href="{% url 'assessments:grading_index' %}" class="text-white/60 hover:text-white transition-colors">
+          Grading
+        </a>
+        {% endif %}
+
+        {% if request.user.is_test_admin %}
+        <a href="{% url 'assessments:exam_attempt_list' %}" class="text-white/60 hover:text-white transition-colors">
+          Exams
+        </a>
+        {% endif %}
+
+        {% if request.user.is_trainer or request.user.is_exec_admin %}
+        <a href="{% url 'assessments:promotion_list' %}" class="text-white/60 hover:text-white transition-colors">
+          Promotions
         </a>
         {% endif %}
 

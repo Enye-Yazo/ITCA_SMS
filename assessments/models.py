@@ -85,7 +85,8 @@ class LocalAssessment(models.Model):
     )
 
     assessment_type = models.CharField(
-        max_length=10, choices=AssessmentType.choices
+        max_length=10, choices=AssessmentType.choices,
+        default=AssessmentType.FORMATIVE_1
     )
 
     # Formative fields

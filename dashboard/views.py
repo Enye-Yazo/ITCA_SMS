@@ -1,6 +1,7 @@
 # dashboard/views.py
 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
 
@@ -13,36 +14,23 @@ from assessments.models import LocalAssessment, InternationalExamAttempt
 @login_required
 def dashboard_index(request):
     """
-    Main dashboard view.
-    Exec Admin sees all campuses.
-    Trainer sees only their campus and their students.
+    Main dashboard view — Exec Admin only. Trainers, Test Admins and
+    Data Capturers are routed to their own landing page (accounts:landing)
+    straight after login and never see this view.
     """
+    if not request.user.is_exec_admin:
+        messages.error(request, "The dashboard is only available to Exec Admins.")
+        return redirect('accounts:landing')
 
-    user = request.user
+    # ── Base querysets — Exec Admin sees every campus ─────────────────────────
+    students = Student.objects.select_related(
+        'applicant', 'applicant__campus',
+        'applicant__program', 'trainer'
+    ).filter(applicant__student_profile__isnull=False)
 
-    # ── Base querysets filtered by role ───────────────────────────────────────
-    if user.is_exec_admin:
-        # Exec Admin sees everything
-        students = Student.objects.select_related(
-            'applicant', 'applicant__campus',
-            'applicant__program', 'trainer'
-        ).filter(applicant__student_profile__isnull=False)
-
-        active_enrollments = Enrollment.objects.filter(
-            status=Enrollment.EnrollmentStatus.ACTIVE
-        )
-
-    else:
-        # Trainers see only their own students
-        students = Student.objects.select_related(
-            'applicant', 'applicant__campus',
-            'applicant__program', 'trainer'
-        ).filter(trainer=user)
-
-        active_enrollments = Enrollment.objects.filter(
-            status=Enrollment.EnrollmentStatus.ACTIVE,
-            class_group__trainer=user
-        )
+    active_enrollments = Enrollment.objects.filter(
+        status=Enrollment.EnrollmentStatus.ACTIVE
+    )
 
     # ── Stat Card Numbers ─────────────────────────────────────────────────────
     pending_applications = Applicant.objects.filter(
@@ -91,6 +79,13 @@ def dashboard_index(request):
     # Build a list of dicts for the dashboard table
     student_rows = []
 
+    # ── Summative Competency Calculation ──────────────────────────────────────
+    # Blended pass rate: a student only counts once they have a formative
+    # average recorded at all — students with no marks yet are excluded
+    # rather than counted as Not Yet Competent.
+    competent_count = 0
+    evaluated_count = 0
+
     for student in students:
         # Get the most recent NQF5 mark for this student
         latest_local = LocalAssessment.objects.filter(
@@ -111,16 +106,20 @@ def dashboard_index(request):
             'int_score':    latest_int.score if latest_int else None,
         })
 
-    # ── Trainers List for Filter Dropdown ─────────────────────────────────────
-    if user.is_exec_admin:
-        trainers = SystemUser.objects.filter(
-            role=UserRole.TRAINER,
-            is_active=True
-        )
-    else:
-        trainers = SystemUser.objects.filter(id=user.id)
+        if student.formative_average is not None:
+            evaluated_count += 1
+            if student.is_competent:
+                competent_count += 1
 
-    # ── Programs List for Filter Dropdown ─────────────────────────────────────
+    if evaluated_count > 0:
+        competent_rate = round((competent_count / evaluated_count) * 100)
+    else:
+        competent_rate = 0
+
+    not_competent_rate = 100 - competent_rate
+
+    # ── Filter Dropdowns ───────────────────────────────────────────────────────
+    trainers = SystemUser.objects.filter(role=UserRole.TRAINER, is_active=True)
     programs = Program.objects.filter(is_active=True)
 
     # ── Context ───────────────────────────────────────────────────────────────
@@ -133,6 +132,9 @@ def dashboard_index(request):
             'cyb_students':         cyb_students,
             'pass_rate':            pass_rate,
             'fail_rate':            fail_rate,
+            'competent_rate':       competent_rate,
+            'not_competent_rate':   not_competent_rate,
+            'evaluated_count':      evaluated_count,
         },
         'student_rows': student_rows,
         'trainers':     trainers,

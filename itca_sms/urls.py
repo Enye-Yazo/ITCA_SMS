@@ -20,7 +20,9 @@ urlpatterns = [
 
     path('academics/', include('academics.urls')),
 
-    # Redirect root to dashboard
-    path('', include('dashboard.urls')),
+    path('assessments/', include('assessments.urls')),
+
+    # Public landing page at root; also the post-login redirect target
+    path('', include('accounts.urls')),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

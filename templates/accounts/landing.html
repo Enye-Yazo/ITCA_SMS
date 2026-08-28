@@ -1,0 +1,83 @@
+<!-- templates/accounts/landing.html -->
+<!-- Public entry point at '/'. Deliberately does not extend base.html —
+     there is no internal app nav to show an anonymous visitor, just the
+     ITCA brand and a way in via Microsoft Entra ID. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ITCA Student Management</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/output.css' %}" />
+</head>
+
+<body class="min-h-screen">
+
+  <div class="min-h-screen flex flex-col">
+
+    <!-- ── Brand mark ─────────────────────────────────────────────────── -->
+    <header class="px-6 py-6 md:px-12">
+      <img src="{% static 'images/logo.png' %}" alt="ITCA Logo" class="h-9 w-auto" />
+    </header>
+
+    <!-- ── Hero ───────────────────────────────────────────────────────── -->
+    <main class="flex-1 flex items-center px-6 md:px-12 pb-12">
+      <div class="max-w-screen-xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+        <!-- Copy + sign-in card -->
+        <div class="glass rounded-3xl p-8 md:p-12 max-w-xl">
+          <p class="text-brand-teal text-xs font-semibold uppercase tracking-widest mb-4">
+            Student Management System
+          </p>
+          <h1 class="text-3xl md:text-4xl font-extrabold leading-tight mb-4">
+            IT Certification Academy
+          </h1>
+          <p class="text-white/60 text-sm md:text-base leading-relaxed mb-8">
+            Applications, enrollment, assessments and certifications for
+            Durban and Pietermaritzburg — all in one place. Sign in with
+            your ITCA Microsoft account to continue.
+          </p>
+
+          <a href="{% url 'oidc_authentication_init' %}" class="ms-signin-btn">
+            <!-- Microsoft's 2x2 logo mark, per brand guidelines: exact
+                 four colours, no recolouring or gradient. -->
+            <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+              <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+              <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+              <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+            </svg>
+            Sign in with Microsoft
+          </a>
+
+          <p class="text-white/30 text-xs mt-6">
+            Access is limited to ITCA staff accounts. Contact your Exec
+            Admin if you need access.
+          </p>
+        </div>
+
+        <!-- Decorative illustration — hidden on small screens -->
+        <div class="hidden lg:flex justify-center">
+          <img src="{% static 'images/backdrops/cloud.png' %}"
+               alt=""
+               class="w-full max-w-lg drop-shadow-2xl" />
+        </div>
+
+      </div>
+    </main>
+
+    <footer class="px-6 md:px-12 py-6 text-center text-white/30 text-xs">
+      © {% now "Y" %} IT Certification Academy — Durban · Pietermaritzburg
+    </footer>
+
+  </div>
+
+</body>
+</html>

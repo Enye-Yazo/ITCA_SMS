@@ -5,8 +5,7 @@
 <form method="post">
   {% csrf_token %}
 
-  <div class="rounded-2xl p-6 mb-4"
-       style="background: rgba(255,255,255,0.05);">
+  <div class="rounded-2xl p-6 mb-4 glass">
     <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
       Personal details
     </p>
@@ -44,8 +43,7 @@
       {% if applicant %}
       <button type="submit" name="action" value="draft"
               class="px-4 py-2 rounded-lg text-sm text-white/60
-                     hover:text-white transition-colors"
-              style="background: rgba(255,255,255,0.08);">
+                     hover:text-white transition-colors glass">
         Save draft
       </button>
       {% endif %}

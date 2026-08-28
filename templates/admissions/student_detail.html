@@ -1,0 +1,188 @@
+<!-- templates/admissions/student_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ student.full_name }} — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+  <div class="flex items-center gap-4">
+    <div class="w-14 h-14 rounded-full flex items-center justify-center
+                text-lg font-semibold flex-shrink-0"
+         style="background: rgba(26,115,232,0.2); color: #1A73E8;">
+      {{ student.applicant.first_name.0 }}{{ student.applicant.last_name.0 }}
+    </div>
+    <div>
+      <h1 class="text-2xl font-bold">{{ student.full_name }}</h1>
+      <p class="text-white/40 text-sm mt-1">
+        {{ student.student_id_code }} ·
+        {{ student.program.program_name }} ·
+        {{ student.campus.campus_name }}
+      </p>
+    </div>
+  </div>
+  <div class="flex items-center gap-4">
+    {% if request.user.is_trainer and active_enrollment and active_enrollment.class_group.cohort == 'New' %}
+    <a href="{% url 'assessments:promotion_request' active_enrollment.pk %}"
+       class="px-4 py-2 rounded-lg text-sm font-semibold
+              bg-brand-teal text-brand-navy hover:opacity-90 transition-opacity">
+      Request Promotion
+    </a>
+    {% endif %}
+    <a href="{% url 'admissions:student_list' %}" class="text-white/50 hover:text-white text-sm">
+      ← Back to Students
+    </a>
+  </div>
+</div>
+
+<!-- ── Profile Card ──────────────────────────────────────────────────────── -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">Trainer</span>
+    <span class="text-lg font-semibold">{{ student.trainer.full_name|default:"Unassigned" }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">Student Email</span>
+    <span class="text-lg font-semibold">{{ student.student_email|default:"—" }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">ID Number</span>
+    <span class="text-lg font-semibold">{{ student.applicant.id_number }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="text-white/50 text-xs uppercase tracking-wider">Registered</span>
+    <span class="text-lg font-semibold">{{ student.created_at|date:"d M Y" }}</span>
+  </div>
+</div>
+
+<!-- ── Modules & Local Assessments ───────────────────────────────────────── -->
+<div class="rounded-2xl p-6 mb-6 glass">
+  <h2 class="font-semibold text-lg mb-4">Modules &amp; Local Assessments</h2>
+  <div class="overflow-x-auto">
+    <table class="dash-table w-full">
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>Status</th>
+          <th class="text-right">PFA01</th>
+          <th class="text-right">PFA02</th>
+          <th class="text-right">PSA</th>
+          <th class="text-right">Int. Exam Attempts</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sm in student_modules %}
+        {% with assessments=sm.local_assessments.all %}
+        <tr>
+          <td class="font-semibold text-xs">{{ sm.module.module_code }}</td>
+          <td class="text-white/70">{{ sm.status }}</td>
+          <td class="text-right">
+            {% for a in assessments %}
+              {% if a.assessment_type == 'PFA01' %}
+                {% if a.effective_mark is not None %}
+                  <span class="{% if a.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">{{ a.effective_mark }}</span>
+                {% else %}<span class="text-white/30">—</span>{% endif %}
+              {% endif %}
+            {% endfor %}
+          </td>
+          <td class="text-right">
+            {% for a in assessments %}
+              {% if a.assessment_type == 'PFA02' %}
+                {% if a.effective_mark is not None %}
+                  <span class="{% if a.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">{{ a.effective_mark }}</span>
+                {% else %}<span class="text-white/30">—</span>{% endif %}
+              {% endif %}
+            {% endfor %}
+          </td>
+          <td class="text-right">
+            {% for a in assessments %}
+              {% if a.assessment_type == 'PSA' %}
+                {% if a.competent is None %}
+                  <span class="text-white/30">—</span>
+                {% elif a.competent %}
+                  <span class="score-high">Competent</span>
+                {% else %}
+                  <span class="score-low">Not Yet Competent</span>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          </td>
+          <td class="text-right text-white/70">{{ sm.exam_attempts.count }}</td>
+        </tr>
+        {% endwith %}
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-white/40 py-8">No modules assigned yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Enrollment History ────────────────────────────────────────────────── -->
+<div class="rounded-2xl p-6 mb-6 glass">
+  <h2 class="font-semibold text-lg mb-4">Enrollment History</h2>
+  <div class="overflow-x-auto">
+    <table class="dash-table w-full">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Cohort</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for enrollment in enrollments %}
+        <tr>
+          <td class="font-semibold text-xs">{{ enrollment.class_group }}</td>
+          <td class="text-white/70">{{ enrollment.class_group.cohort }}</td>
+          <td class="text-white/70">{{ enrollment.start_date }}</td>
+          <td class="text-white/70">{{ enrollment.end_date|default:"—" }}</td>
+          <td class="text-white/70">{{ enrollment.status }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-white/40 py-8">No enrollment history.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Promotion History ─────────────────────────────────────────────────── -->
+<div class="rounded-2xl p-6 glass">
+  <h2 class="font-semibold text-lg mb-4">Promotion History</h2>
+  <div class="overflow-x-auto">
+    <table class="dash-table w-full">
+      <thead>
+        <tr>
+          <th>Requested</th>
+          <th>Target Class</th>
+          <th>Status</th>
+          <th>Reviewed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for promotion in promotions %}
+        <tr>
+          <td class="text-white/70">{{ promotion.request_date }}</td>
+          <td class="font-semibold text-xs">{{ promotion.target_class }}</td>
+          <td class="text-white/70">{{ promotion.status }}</td>
+          <td class="text-white/70">{{ promotion.review_date|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center text-white/40 py-8">No promotion requests.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

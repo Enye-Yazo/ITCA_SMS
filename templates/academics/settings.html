@@ -28,8 +28,7 @@
 {% endif %}
 
 <!-- ── Tab Navigation ────────────────────────────────────────────────────── -->
-<div class="flex gap-1 mb-6 p-1 rounded-xl w-fit"
-     style="background: rgba(255,255,255,0.05);">
+<div class="flex gap-1 mb-6 p-1 rounded-xl w-fit glass">
   {% for tab_id, tab_label in tabs %}
   <button onclick="switchTab('{{ tab_id }}')"
           id="tab-btn-{{ tab_id }}"
@@ -44,13 +43,11 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Campuses List -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Campuses</h2>
       <div class="flex flex-col gap-2">
         {% for campus in campuses %}
-        <div class="flex items-center justify-between p-3 rounded-lg"
-             style="background: rgba(255,255,255,0.05);">
+        <div class="flex items-center justify-between p-3 rounded-lg glass">
           <div>
             <p class="text-sm font-medium">{{ campus.campus_name }}</p>
             <p class="text-xs text-white/40">{{ campus.campus_code }}</p>
@@ -89,8 +86,7 @@
     </div>
 
     <!-- Add Campus Form -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Add campus</h2>
       <form method="post" action="{% url 'academics:campus_add' %}">
         {% csrf_token %}
@@ -119,13 +115,11 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Programs List -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Programs</h2>
       <div class="flex flex-col gap-2">
         {% for program in programs %}
-        <div class="flex items-center justify-between p-3 rounded-lg"
-             style="background: rgba(255,255,255,0.05);">
+        <div class="flex items-center justify-between p-3 rounded-lg glass">
           <div>
             <p class="text-sm font-medium">{{ program.program_name }}</p>
             <p class="text-xs text-white/40">{{ program.program_code }}</p>
@@ -146,8 +140,7 @@
     </div>
 
     <!-- Add Program Form -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Add program</h2>
       <form method="post" action="{% url 'academics:program_add' %}">
         {% csrf_token %}
@@ -176,13 +169,11 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Modules List -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Modules</h2>
       <div class="flex flex-col gap-2">
         {% for module in modules %}
-        <div class="p-3 rounded-lg"
-             style="background: rgba(255,255,255,0.05);">
+        <div class="p-3 rounded-lg glass">
           <div class="flex items-center justify-between mb-1">
             <p class="text-sm font-medium">{{ module.module_name }}</p>
             <span class="text-xs px-2 py-1 rounded-full
@@ -213,8 +204,7 @@
     </div>
 
     <!-- Add Module Form -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Add module</h2>
       <form method="post" action="{% url 'academics:module_add' %}">
         {% csrf_token %}
@@ -250,13 +240,11 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
 
     <!-- Links List -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Program — module links</h2>
       <div class="flex flex-col gap-2">
         {% for pm in program_modules %}
-        <div class="flex items-center justify-between p-3 rounded-lg"
-             style="background: rgba(255,255,255,0.05);">
+        <div class="flex items-center justify-between p-3 rounded-lg glass">
           <div>
             <p class="text-sm">
               <span class="font-medium">{{ pm.program.program_code }}</span>
@@ -285,8 +273,7 @@
     </div>
 
     <!-- Add Link Form -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Link module to program</h2>
       <form method="post"
             action="{% url 'academics:program_module_add' %}">
@@ -316,14 +303,12 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Classes List -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Classes</h2>
       <div class="flex flex-col gap-2">
         {% for class_obj in classes %}
         {% with enrolled=class_obj.enrollments.count %}
-        <div class="p-3 rounded-lg"
-             style="background: rgba(255,255,255,0.05);">
+        <div class="p-3 rounded-lg glass">
           <div class="flex items-center justify-between mb-1">
             <p class="text-sm font-medium">{{ class_obj }}</p>
             <span class="text-xs px-2 py-1 rounded-full
@@ -359,8 +344,7 @@
     </div>
 
     <!-- Add Class Form -->
-    <div class="rounded-2xl p-6"
-         style="background: rgba(255,255,255,0.05);">
+    <div class="rounded-2xl p-6 glass">
       <h2 class="font-semibold mb-4">Add class</h2>
       <form method="post" action="{% url 'academics:class_add' %}">
         {% csrf_token %}

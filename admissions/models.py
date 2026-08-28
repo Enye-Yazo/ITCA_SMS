@@ -289,6 +289,39 @@ class Student(models.Model):
         # Convenience property — program lives on the applicant record
         return self.applicant.program
 
+    @property
+    def formative_average(self):
+        """
+        Average of the effective mark (remediation mark if remediated,
+        else original mark) across every formative assessment the
+        student has a mark recorded for, across all modules.
+        Returns None if no formative marks have been captured yet.
+        """
+        # Imported lazily to avoid a circular import — assessments.models
+        # already imports Student from this module at module load time.
+        from assessments.models import LocalAssessment
+
+        local_assessments = LocalAssessment.objects.filter(
+            student_module__student=self,
+            assessment_type__in=[
+                LocalAssessment.AssessmentType.FORMATIVE_1,
+                LocalAssessment.AssessmentType.FORMATIVE_2,
+            ],
+        )
+        effective_marks = [
+            a.effective_mark for a in local_assessments
+            if a.effective_mark is not None
+        ]
+        if not effective_marks:
+            return None
+        return sum(effective_marks) / len(effective_marks)
+
+    @property
+    def is_competent(self):
+        """A student is deemed Competent once their formative average reaches 94%."""
+        average = self.formative_average
+        return average is not None and average >= 94
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
@@ -340,3 +373,35 @@ class Alumni(models.Model):
 
     def __str__(self):
         return f"{self.student.full_name} — {self.graduation_date.year}"
+
+
+# ─── Signal: auto-assign default modules ──────────────────────────────────────
+@receiver(post_save, sender=Student)
+def assign_default_modules(sender, instance, created, **kwargs):
+    """
+    Fires when a Student is created (i.e. on application approval).
+    Snapshots the program's current is_default=True ProgramModule links
+    into StudentModule records. Because this only runs at creation time,
+    changing a program's defaults afterward never affects students who
+    are already registered — only future approvals see the new defaults.
+    Creating each StudentModule in turn fires create_local_assessment_slots
+    (assessments.models), which builds the 3 empty assessment rows.
+    """
+    if not created:
+        return
+
+    # Imported lazily to avoid a circular import — assessments.models
+    # already imports Student from this module at module load time.
+    from academics.models import ProgramModule
+    from assessments.models import StudentModule
+
+    default_modules = ProgramModule.objects.filter(
+        program=instance.applicant.program,
+        is_default=True
+    )
+    for program_module in default_modules:
+        StudentModule.objects.get_or_create(
+            student=instance,
+            module=program_module.module,
+            defaults={'assignment_type': StudentModule.AssignmentType.DEFAULT},
+        )
