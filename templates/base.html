@@ -8,13 +8,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}ITCA Student Management{% endblock %}</title>
 
-  <!-- Google Fonts — Inter -->
+  {% load static %}
+  <!-- Favicon — cropped from the ITCA logo mark, static/images/favicon.png -->
+  <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}" />
+
+  <!-- Google Fonts — Archivo -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
   <!-- Compiled Tailwind CSS -->
-  {% load static %}
   <link rel="stylesheet" href="{% static 'css/output.css' %}" />
 
   {% block extra_css %}{% endblock %}
@@ -23,73 +26,78 @@
 <body class="min-h-screen">
 
   <!-- ── Top Navigation ───────────────────────────────────────────────── -->
-  <nav class="glass-nav">
-    <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
+  <nav class="surface-nav px-6 py-3 flex items-center gap-4">
 
-      <!-- Logo and Portal Name -->
-      <div class="flex items-center gap-3">
-        <img
-          src="{% static 'images/logo.png' %}"
-          alt="ITCA Logo"
-          class="h-8 w-auto"
-        />
-      </div>
-
-      <!-- Navigation Links — shown based on user role -->
-      <div class="flex items-center gap-8 text-sm font-medium">
-        {% if request.user.is_exec_admin %}
-        <a href="{% url 'dashboard:index' %}"
-           class="text-white hover:text-brand-teal transition-colors">
-          Dashboard
-        </a>
-        {% endif %}
-
-        {% if request.user.is_exec_admin or request.user.is_trainer %}
-        <a href="{% url 'admissions:student_list' %}" class="text-white/60 hover:text-white transition-colors">
-          Students
-        </a>
-        {% endif %}
-
-        {% if request.user.is_trainer %}
-        <a href="{% url 'assessments:grading_index' %}" class="text-white/60 hover:text-white transition-colors">
-          Grading
-        </a>
-        {% endif %}
-
-        {% if request.user.is_test_admin %}
-        <a href="{% url 'assessments:exam_attempt_list' %}" class="text-white/60 hover:text-white transition-colors">
-          Exams
-        </a>
-        {% endif %}
-
-        {% if request.user.is_trainer or request.user.is_exec_admin %}
-        <a href="{% url 'assessments:promotion_list' %}" class="text-white/60 hover:text-white transition-colors">
-          Promotions
-        </a>
-        {% endif %}
-
-        {% if request.user.is_exec_admin %}
-        <a href="#" class="text-white/60 hover:text-white transition-colors">
-          Programs
-        </a>
-        <a href="{% url 'academics:settings' %}" class="text-white/60 hover:text-white transition-colors">
-          Settings
-        </a>
-        {% endif %}
-      </div>
-
-      <!-- User Info and Logout -->
-      <div class="flex items-center gap-4 text-sm">
-        <span class="text-white/60">
-          {{ request.user.full_name }}
-        </span>
-        <a href="{% url 'oidc_logout' %}"
-           class="text-white/60 hover:text-white transition-colors">
-          Sign out
-        </a>
-      </div>
-
+    <!-- Logo -->
+    <div class="flex items-center gap-2 mr-auto">
+      <img
+        src="{% static 'images/logo.png' %}"
+        alt="ITCA Logo"
+        class="h-8 w-auto"
+      />
     </div>
+
+    <!-- Navigation Links — shown based on user role. The active page's
+         link is blue/bold per the design; everything else is muted navy. -->
+    {% if request.user.is_exec_admin %}
+    <a href="{% url 'dashboard:index' %}"
+       class="text-sm {% if request.resolver_match.view_name == 'dashboard:index' %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Dashboard
+    </a>
+    {% endif %}
+
+    {% if request.user.is_exec_admin or request.user.is_trainer %}
+    <a href="{% url 'admissions:student_list' %}"
+       class="text-sm {% if 'students' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Students
+    </a>
+    {% endif %}
+
+    {% if request.user.is_trainer %}
+    <a href="{% url 'assessments:grading_index' %}"
+       class="text-sm {% if 'grading' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Grading
+    </a>
+    {% endif %}
+
+    {% if request.user.is_test_admin %}
+    <a href="{% url 'assessments:exam_attempt_list' %}"
+       class="text-sm {% if 'exams' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Exams
+    </a>
+    {% endif %}
+
+    {% if request.user.is_trainer or request.user.is_exec_admin %}
+    <a href="{% url 'assessments:promotion_list' %}"
+       class="text-sm {% if 'promotions' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Promotions
+    </a>
+    {% endif %}
+
+    {% if request.user.is_exec_admin %}
+    <a href="{% url 'accounts:user_list' %}"
+       class="text-sm {% if request.resolver_match.view_name == 'accounts:user_list' %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Users
+    </a>
+    <a href="{% url 'academics:settings' %}"
+       class="text-sm {% if 'settings' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+      Settings
+    </a>
+    {% endif %}
+
+    <div class="w-px h-5 bg-itca-navy/15 mx-2"></div>
+
+    <!-- User Info and Logout -->
+    <div class="flex items-center gap-4 text-sm">
+      <span class="text-itca-navy/60">
+        {{ request.user.full_name }}
+      </span>
+      <a href="{% url 'oidc_logout' %}"
+         class="text-itca-navy/60 hover:text-itca-navy transition-colors">
+        Sign out
+      </a>
+    </div>
+
   </nav>
 
   <!-- ── Page Content ──────────────────────────────────────────────────── -->

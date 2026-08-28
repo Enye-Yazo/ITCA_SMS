@@ -41,14 +41,37 @@ def dashboard_index(request):
     from django.utils import timezone
     current_year = timezone.now().year
 
-    new_registrations = active_enrollments.filter(
+    new_registration_enrollments = active_enrollments.filter(
         class_group__academic_year=current_year,
         class_group__cohort='New'
-    ).count()
+    ).select_related(
+        'student', 'student__applicant', 'student__applicant__campus',
+        'student__applicant__program', 'class_group'
+    ).order_by('-start_date')
+
+    new_registrations = new_registration_enrollments.count()
+
+    # Rows for the "New Registrations" popup on the dashboard tile —
+    # built here rather than in the template since it needs the same
+    # queryset the stat card count is drawn from.
+    new_registration_rows = [
+        {
+            'student_name': enrollment.student.full_name,
+            'student_id_code': enrollment.student.student_id_code,
+            'program_code': enrollment.student.program.program_code,
+            'campus_code': enrollment.student.campus.campus_code,
+            'start_date': enrollment.start_date,
+        }
+        for enrollment in new_registration_enrollments
+    ]
 
     active_students = active_enrollments.count()
 
-    # Per-program student counts
+    # Per-program — used for stat card counts and the tile links through
+    # to the filtered student list
+    sftw_program = Program.objects.filter(program_code='SFTW').first()
+    cyb_program = Program.objects.filter(program_code='CYB').first()
+
     sftw_students = active_enrollments.filter(
         class_group__program__program_code='SFTW'
     ).count()
@@ -103,7 +126,11 @@ def dashboard_index(request):
             'trainer_name': student.trainer.full_name if student.trainer else '—',
             'trainer_id':   student.trainer.id if student.trainer else '',
             'nqf5_score':   latest_local.mark if latest_local else None,
-            'int_score':    latest_int.score if latest_int else None,
+            # International exams are scored out of 1000 (700 = pass) —
+            # converted to a 0-100 percentage here since this column is
+            # compared against the same >=80/>=60 thresholds as the
+            # local NQF5 mark next to it.
+            'int_score':    latest_int.percentage_score if latest_int else None,
         })
 
         if student.formative_average is not None:
@@ -132,6 +159,7 @@ def dashboard_index(request):
             'cyb_students':         cyb_students,
             'pass_rate':            pass_rate,
             'fail_rate':            fail_rate,
+            'total_attempts':       total_attempts,
             'competent_rate':       competent_rate,
             'not_competent_rate':   not_competent_rate,
             'evaluated_count':      evaluated_count,
@@ -139,6 +167,9 @@ def dashboard_index(request):
         'student_rows': student_rows,
         'trainers':     trainers,
         'programs':     programs,
+        'new_registration_rows': new_registration_rows,
+        'sftw_program_id': sftw_program.id if sftw_program else '',
+        'cyb_program_id':  cyb_program.id if cyb_program else '',
     }
 
     return render(request, 'dashboard/index.html', context)

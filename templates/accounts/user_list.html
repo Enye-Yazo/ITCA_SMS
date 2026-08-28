@@ -1,0 +1,99 @@
+<!-- templates/accounts/user_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Users — ITCA Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<div class="mb-6">
+  <h1 class="text-2xl font-bold">Users</h1>
+  <p class="text-itca-navy/40 text-sm mt-1">
+    
+  </p>
+</div>
+
+<!-- ── Messages ──────────────────────────────────────────────────────────── -->
+{% if messages %}
+{% for message in messages %}
+<div class="rounded-xl p-4 mb-4 text-sm
+  {% if message.tags == 'error' %}
+    bg-red-50 border border-red-300 text-red-700
+  {% else %}
+    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
+  {% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ── User List ─────────────────────────────────────────────────────────── -->
+<div class="rounded-2xl p-6 surface">
+  <div class="overflow-x-auto">
+    <table class="dash-table w-full">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Campus</th>
+          <th>Active</th>
+          <th class="text-right">Save</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in user_rows %}
+        {% if row.user.pk != request.user.pk %}
+        <!-- A <form> can't legally wrap <td> siblings inside a <tr>, so the
+             form lives outside the table and each field below points at it
+             via the HTML5 form="..." attribute instead. -->
+        <form id="user-form-{{ row.user.pk }}" method="post"
+              action="{% url 'accounts:user_update' row.user.pk %}">
+          {% csrf_token %}
+        </form>
+        {% endif %}
+        <tr>
+          {% if row.user.pk == request.user.pk %}
+          <!-- Your own account isn't editable here — see Django admin -->
+          <td class="font-semibold text-xs">{{ row.user.full_name }} <span class="text-itca-navy/30">(you)</span></td>
+          <td class="text-itca-navy/70">{{ row.user.email }}</td>
+          <td class="text-itca-navy/70">{{ row.user.get_role_display }}</td>
+          <td class="text-itca-navy/70">{{ row.user.campus|default:"—" }}</td>
+          <td class="text-itca-navy/70">{% if row.user.is_active %}Active{% else %}Inactive{% endif %}</td>
+          <td class="text-right text-itca-navy/30 text-xs">Use Django admin</td>
+          {% else %}
+          <td>
+            <div class="flex gap-1">
+              {{ row.form.first_name }}
+              {{ row.form.last_name }}
+            </div>
+          </td>
+          <td class="text-itca-navy/70">{{ row.user.email }}</td>
+          <td>{{ row.form.role }}</td>
+          <td>{{ row.form.campus }}</td>
+          <td>
+            <label class="flex items-center gap-2">
+              {{ row.form.is_active }}
+              <span class="text-xs text-itca-navy/50">Active</span>
+            </label>
+          </td>
+          <td class="text-right">
+            <button type="submit" form="user-form-{{ row.user.pk }}"
+                    class="text-xs px-3 py-1 rounded-full font-medium"
+                    style="background: var(--color-itca-blue-light); color: var(--color-itca-blue-dark);">
+              Save
+            </button>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-itca-navy/40 py-8">No users found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -9,13 +9,13 @@
 <!-- ── Page Header ───────────────────────────────────────────────────────── -->
 <div class="mb-8">
   <h1 class="text-2xl font-bold">Grading</h1>
-  <p class="text-white/50 text-sm mt-1">
+  <p class="text-itca-navy/50 text-sm mt-1">
     Local NQF5 assessments for your students. Click a row to enter marks.
   </p>
 </div>
 
 <!-- ── Grading Table ─────────────────────────────────────────────────────── -->
-<div class="rounded-2xl p-6 glass">
+<div class="rounded-2xl p-6 surface">
   <div class="overflow-x-auto">
     <table class="dash-table w-full" id="gradingTable">
       <thead>
@@ -31,7 +31,7 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr class="cursor-pointer hover:bg-white/5"
+        <tr class="cursor-pointer hover:bg-itca-navy/5"
             data-student-module-id="{{ row.student_module_id }}"
             data-student-name="{{ row.student_name }}"
             data-module-name="{{ row.module_name }}"
@@ -46,15 +46,15 @@
 
           <td class="font-semibold text-xs">{{ row.student_id_code }}</td>
           <td>{{ row.student_name }}</td>
-          <td class="text-white/70">{{ row.cohort }}</td>
-          <td class="text-white/70">{{ row.module_code }}</td>
+          <td class="text-itca-navy/70">{{ row.cohort }}</td>
+          <td class="text-itca-navy/70">{{ row.module_code }}</td>
 
           <td class="text-right">
             {% if row.pfa01.effective_mark is not None %}
               <span class="{% if row.pfa01.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">
                 {{ row.pfa01.effective_mark }}
               </span>
-            {% else %}<span class="text-white/30">—</span>{% endif %}
+            {% else %}<span class="text-itca-navy/30">—</span>{% endif %}
           </td>
 
           <td class="text-right">
@@ -62,12 +62,12 @@
               <span class="{% if row.pfa02.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">
                 {{ row.pfa02.effective_mark }}
               </span>
-            {% else %}<span class="text-white/30">—</span>{% endif %}
+            {% else %}<span class="text-itca-navy/30">—</span>{% endif %}
           </td>
 
           <td class="text-right">
             {% if row.psa.competent is None %}
-              <span class="text-white/30">—</span>
+              <span class="text-itca-navy/30">—</span>
             {% elif row.psa.competent %}
               <span class="score-high">Competent</span>
             {% else %}
@@ -78,7 +78,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="7" class="text-center text-white/40 py-8">
+          <td colspan="7" class="text-center text-itca-navy/40 py-8">
             No students assigned to you yet.
           </td>
         </tr>
@@ -92,12 +92,12 @@
 <!-- Stays open until the update succeeds server-side, per business requirement. -->
 <div id="gradingModal"
      class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-scrim">
-  <div class="w-full max-w-lg rounded-2xl p-6 glass">
+  <div class="w-full max-w-lg rounded-2xl p-6 surface">
 
     <div class="flex items-start justify-between mb-4">
       <div>
         <h2 class="font-semibold text-lg" id="modalStudentName"></h2>
-        <p class="text-white/50 text-sm" id="modalModuleName"></p>
+        <p class="text-itca-navy/50 text-sm" id="modalModuleName"></p>
       </div>
     </div>
 
@@ -105,68 +105,68 @@
       {% csrf_token %}
 
       <!-- PFA01 -->
-      <fieldset class="rounded-xl p-4 glass">
-        <legend class="text-xs uppercase tracking-wider text-white/50 px-1">Formative 1 (PFA01)</legend>
+      <fieldset class="rounded-xl p-4 surface">
+        <legend class="text-xs uppercase tracking-wider text-itca-navy/50 px-1">Formative 1 (PFA01)</legend>
         <div class="grid grid-cols-2 gap-3 mt-2">
-          <label class="text-sm text-white/70">
+          <label class="text-sm text-itca-navy/70">
             Mark (%)
             <input type="number" min="0" max="100" id="pfa01_mark"
-                   class="mt-1 w-full rounded-lg bg-transparent border border-white/20 px-3 py-2 text-white" required>
+                   class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy" required>
           </label>
-          <label class="text-sm text-white/70 flex items-center gap-2 mt-6">
+          <label class="text-sm text-itca-navy/70 flex items-center gap-2 mt-6">
             <input type="checkbox" id="pfa01_is_remediation">
             Remediated
           </label>
         </div>
-        <label class="text-sm text-white/70 block mt-3" id="pfa01_remediation_wrap">
+        <label class="text-sm text-itca-navy/70 block mt-3" id="pfa01_remediation_wrap">
           Remediation Mark (%)
           <input type="number" min="0" max="100" id="pfa01_remediation_mark"
-                 class="mt-1 w-full rounded-lg bg-transparent border border-white/20 px-3 py-2 text-white">
+                 class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy">
         </label>
       </fieldset>
 
       <!-- PFA02 -->
-      <fieldset class="rounded-xl p-4 glass">
-        <legend class="text-xs uppercase tracking-wider text-white/50 px-1">Formative 2 (PFA02)</legend>
+      <fieldset class="rounded-xl p-4 surface">
+        <legend class="text-xs uppercase tracking-wider text-itca-navy/50 px-1">Formative 2 (PFA02)</legend>
         <div class="grid grid-cols-2 gap-3 mt-2">
-          <label class="text-sm text-white/70">
+          <label class="text-sm text-itca-navy/70">
             Mark (%)
             <input type="number" min="0" max="100" id="pfa02_mark"
-                   class="mt-1 w-full rounded-lg bg-transparent border border-white/20 px-3 py-2 text-white" required>
+                   class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy" required>
           </label>
-          <label class="text-sm text-white/70 flex items-center gap-2 mt-6">
+          <label class="text-sm text-itca-navy/70 flex items-center gap-2 mt-6">
             <input type="checkbox" id="pfa02_is_remediation">
             Remediated
           </label>
         </div>
-        <label class="text-sm text-white/70 block mt-3" id="pfa02_remediation_wrap">
+        <label class="text-sm text-itca-navy/70 block mt-3" id="pfa02_remediation_wrap">
           Remediation Mark (%)
           <input type="number" min="0" max="100" id="pfa02_remediation_mark"
-                 class="mt-1 w-full rounded-lg bg-transparent border border-white/20 px-3 py-2 text-white">
+                 class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy">
         </label>
       </fieldset>
 
       <!-- PSA -->
-      <fieldset class="rounded-xl p-4 glass">
-        <legend class="text-xs uppercase tracking-wider text-white/50 px-1">Summative (PSA)</legend>
+      <fieldset class="rounded-xl p-4 surface">
+        <legend class="text-xs uppercase tracking-wider text-itca-navy/50 px-1">Summative (PSA)</legend>
         <select id="psa_competent" required
-                class="mt-2 w-full rounded-lg bg-transparent border border-white/20 px-3 py-2 text-white">
+                class="mt-2 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy">
           <option value="" disabled>Select a result</option>
           <option value="true">Competent</option>
           <option value="false">Not Yet Competent</option>
         </select>
       </fieldset>
 
-      <p id="modalError" class="text-red-400 text-sm hidden"></p>
+      <p id="modalError" class="text-red-700 text-sm hidden"></p>
 
       <div class="flex justify-end gap-3 pt-2">
         <button type="button" onclick="closeGradingModal()"
-                class="px-4 py-2 rounded-lg text-white/70 hover:text-white text-sm">
+                class="px-4 py-2 rounded-lg text-itca-navy/70 hover:text-itca-navy text-sm">
           Cancel
         </button>
         <button type="submit" id="modalSubmit"
                 class="px-4 py-2 rounded-lg text-sm font-semibold"
-                style="background: #00BFA5; color: #0F1B2D;">
+                style="background: var(--color-itca-blue); color: #fff;">
           Save Marks
         </button>
       </div>

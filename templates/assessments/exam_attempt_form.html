@@ -8,37 +8,68 @@
 <div class="max-w-xl mx-auto">
 
   <a href="{% url 'assessments:exam_attempt_list' %}"
-     class="text-sm text-white/40 hover:text-white/70 transition-colors">
+     class="text-sm text-itca-navy/40 hover:text-itca-navy/70 transition-colors">
     ← International Exam Attempts
   </a>
   <h1 class="text-2xl font-bold mt-2 mb-6">Record Exam Attempt</h1>
 
   {% if messages %}
   {% for message in messages %}
-  <div class="rounded-xl p-4 mb-4 text-sm bg-red-500/10 border border-red-500/30 text-red-400">
+  <div class="rounded-xl p-4 mb-4 text-sm bg-red-50 border border-red-300 text-red-700">
     {{ message }}
   </div>
   {% endfor %}
   {% endif %}
 
-  <form method="post">
+  <form method="post" id="examAttemptForm">
     {% csrf_token %}
 
-    <div class="rounded-2xl p-6 mb-4 flex flex-col gap-4 glass">
-      {% include 'admissions/includes/form_field.html' with field=form.student_module %}
+    <div class="rounded-2xl p-6 mb-4 flex flex-col gap-4 surface">
+
+      <!-- Student — searchable by name or Student ID, resolved to form.student below -->
+      <div class="flex flex-col gap-1">
+        <label for="student_search" class="text-xs text-itca-navy/40 uppercase tracking-wider">
+          Student <span class="text-red-700">*</span>
+        </label>
+        <div class="border rounded-lg overflow-hidden {% if form.student.errors %}border-red-400{% else %}border-itca-navy/10{% endif %}">
+          <input type="text" id="student_search" autocomplete="off"
+                 placeholder="Search by name or Student ID…"
+                 list="studentOptions">
+        </div>
+        <datalist id="studentOptions">
+          {% for student in students %}
+          <option data-student-id="{{ student.id }}"
+                  value="{{ student.full_name }} ({{ student.student_id_code }})"></option>
+          {% endfor %}
+        </datalist>
+        {{ form.student }}
+        {% for error in form.student.errors %}
+        <p class="text-red-700 text-xs">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      {% include 'admissions/includes/form_field.html' with field=form.module %}
       {% include 'admissions/includes/form_field.html' with field=form.exam_date %}
       {% include 'admissions/includes/form_field.html' with field=form.exam_result %}
-      {% include 'admissions/includes/form_field.html' with field=form.score %}
+
+      <div>
+        {% include 'admissions/includes/form_field.html' with field=form.score %}
+        <p class="text-itca-navy/30 text-xs mt-1">Out of 1000 — 700 is the pass mark.</p>
+      </div>
     </div>
+
+    <p id="studentRequiredError" class="hidden text-red-700 text-xs mb-3">
+      Search for and select a student from the list before saving.
+    </p>
 
     <div class="flex justify-between items-center">
       <a href="{% url 'assessments:exam_attempt_list' %}"
-         class="text-sm text-white/40 hover:text-white/70 transition-colors">
+         class="text-sm text-itca-navy/40 hover:text-itca-navy/70 transition-colors">
         Cancel
       </a>
       <button type="submit"
               class="px-5 py-2 rounded-lg text-sm font-semibold
-                     bg-brand-teal text-brand-navy hover:opacity-90 transition-opacity">
+                     bg-itca-blue text-white hover:opacity-90 transition-opacity">
         Save attempt
       </button>
     </div>
@@ -46,4 +77,47 @@
 
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const studentSearch = document.getElementById('student_search');
+  const studentHidden = document.getElementById('id_student');
+  const studentOptions = document.querySelectorAll('#studentOptions option');
+  const studentError = document.getElementById('studentRequiredError');
+
+  // Pre-fill the visible search box if this is a re-render after a
+  // validation error elsewhere in the form, so the student choice isn't lost.
+  if (studentHidden && studentHidden.value) {
+    studentOptions.forEach(opt => {
+      if (opt.dataset.studentId === studentHidden.value) {
+        studentSearch.value = opt.value;
+      }
+    });
+  }
+
+  function resolveStudentSelection() {
+    let matchedId = '';
+    studentOptions.forEach(opt => {
+      if (opt.value === studentSearch.value) {
+        matchedId = opt.dataset.studentId;
+      }
+    });
+    studentHidden.value = matchedId;
+    return matchedId;
+  }
+
+  studentSearch.addEventListener('input', resolveStudentSelection);
+
+  document.getElementById('examAttemptForm').addEventListener('submit', function (event) {
+    const matchedId = resolveStudentSelection();
+    if (!matchedId) {
+      event.preventDefault();
+      studentError.classList.remove('hidden');
+      studentSearch.focus();
+    } else {
+      studentError.classList.add('hidden');
+    }
+  });
+</script>
 {% endblock %}

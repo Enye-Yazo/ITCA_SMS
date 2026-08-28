@@ -5,6 +5,7 @@ charset-normalizer==3.5.1
 cryptography==50.0.1
 Django==6.1
 et_xmlfile==2.0.0
+gunicorn==26.2.0
 idna==3.19
 mozilla-django-oidc==5.0.2
 openpyxl==3.1.5
@@ -17,3 +18,4 @@ requests==2.34.2
 sqlparse==0.6.0
 tzdata==2026.3
 urllib3==2.7.0
+whitenoise==6.12.0

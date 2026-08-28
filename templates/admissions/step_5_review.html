@@ -6,13 +6,13 @@
 <!-- ── Review Sections ───────────────────────────────────────────────────── -->
 
 <!-- Personal -->
-<div class="rounded-2xl p-6 mb-4 glass">
+<div class="rounded-2xl p-6 mb-4 surface">
   <div class="flex justify-between items-center mb-4">
-    <p class="text-xs text-white/40 uppercase tracking-wider">
+    <p class="text-xs text-itca-navy/40 uppercase tracking-wider">
       Personal details
     </p>
     <a href="{% url 'admissions:application_step' applicant.pk 1 %}"
-       class="text-xs text-brand-teal hover:underline">Edit</a>
+       class="text-xs text-itca-blue hover:underline">Edit</a>
   </div>
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
     {% include 'admissions/includes/review_field.html' with label="First name" value=applicant.first_name %}
@@ -29,13 +29,13 @@
 </div>
 
 <!-- Contact -->
-<div class="rounded-2xl p-6 mb-4 glass">
+<div class="rounded-2xl p-6 mb-4 surface">
   <div class="flex justify-between items-center mb-4">
-    <p class="text-xs text-white/40 uppercase tracking-wider">
+    <p class="text-xs text-itca-navy/40 uppercase tracking-wider">
       Contact & address
     </p>
     <a href="{% url 'admissions:application_step' applicant.pk 2 %}"
-       class="text-xs text-brand-teal hover:underline">Edit</a>
+       class="text-xs text-itca-blue hover:underline">Edit</a>
   </div>
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
     {% include 'admissions/includes/review_field.html' with label="Email" value=applicant.personal_email %}
@@ -48,13 +48,13 @@
 </div>
 
 <!-- Education -->
-<div class="rounded-2xl p-6 mb-4 glass">
+<div class="rounded-2xl p-6 mb-4 surface">
   <div class="flex justify-between items-center mb-4">
-    <p class="text-xs text-white/40 uppercase tracking-wider">
+    <p class="text-xs text-itca-navy/40 uppercase tracking-wider">
       Education & disability
     </p>
     <a href="{% url 'admissions:application_step' applicant.pk 3 %}"
-       class="text-xs text-brand-teal hover:underline">Edit</a>
+       class="text-xs text-itca-blue hover:underline">Edit</a>
   </div>
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
     {% include 'admissions/includes/review_field.html' with label="School" value=applicant.school_name %}
@@ -66,13 +66,13 @@
 
 <!-- Next of Kin -->
 {% if contact %}
-<div class="rounded-2xl p-6 mb-6 glass">
+<div class="rounded-2xl p-6 mb-6 surface">
   <div class="flex justify-between items-center mb-4">
-    <p class="text-xs text-white/40 uppercase tracking-wider">
+    <p class="text-xs text-itca-navy/40 uppercase tracking-wider">
       Next of kin
     </p>
     <a href="{% url 'admissions:application_step' applicant.pk 4 %}"
-       class="text-xs text-brand-teal hover:underline">Edit</a>
+       class="text-xs text-itca-blue hover:underline">Edit</a>
   </div>
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
     {% include 'admissions/includes/review_field.html' with label="Name" value=contact %}
@@ -87,7 +87,7 @@
 <!-- Submit -->
 <div class="flex justify-between items-center">
   <a href="{% url 'admissions:application_step' applicant.pk 4 %}"
-     class="text-sm text-white/40 hover:text-white/70 transition-colors">
+     class="text-sm text-itca-navy/40 hover:text-itca-navy/70 transition-colors">
     ← Back
   </a>
     <form method="post"
@@ -95,7 +95,7 @@
     {% csrf_token %}
     <button type="submit"
             class="px-6 py-2 rounded-lg text-sm font-semibold
-                   bg-brand-teal text-brand-navy hover:opacity-90
+                   bg-itca-blue text-white hover:opacity-90
                    transition-opacity">
       Submit for approval
     </button>

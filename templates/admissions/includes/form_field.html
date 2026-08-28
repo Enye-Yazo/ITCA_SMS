@@ -2,16 +2,16 @@
 
 <div class="flex flex-col gap-1">
   <label for="{{ field.id_for_label }}"
-         class="text-xs text-white/40 uppercase tracking-wider">
+         class="text-xs text-itca-navy/40 uppercase tracking-wider">
     {{ field.label }}
     {% if field.field.required %}
-    <span class="text-red-400">*</span>
+    <span class="text-red-700">*</span>
     {% endif %}
   </label>
 
   <!-- Render the field with consistent styling -->
   <div class="
-    {% if field.errors %}border-red-500/50{% else %}border-white/10{% endif %}
+    {% if field.errors %}border-red-400{% else %}border-itca-navy/10{% endif %}
     border rounded-lg overflow-hidden">
     {{ field }}
   </div>
@@ -19,7 +19,7 @@
   <!-- Field errors -->
   {% if field.errors %}
   {% for error in field.errors %}
-  <p class="text-red-400 text-xs">{{ error }}</p>
+  <p class="text-red-700 text-xs">{{ error }}</p>
   {% endfor %}
   {% endif %}
 </div>

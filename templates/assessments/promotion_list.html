@@ -7,7 +7,7 @@
 
 <div class="mb-6">
   <h1 class="text-2xl font-bold">Promotions</h1>
-  <p class="text-white/40 text-sm mt-1">
+  <p class="text-itca-navy/40 text-sm mt-1">
     {% if request.user.is_exec_admin %}
       Review and approve promotion requests from trainers.
     {% else %}
@@ -20,18 +20,18 @@
 {% for message in messages %}
 <div class="rounded-xl p-4 mb-4 text-sm
   {% if message.tags == 'error' %}
-    bg-red-500/10 border border-red-500/30 text-red-400
+    bg-red-50 border border-red-300 text-red-700
   {% elif message.tags == 'warning' %}
-    bg-amber-500/10 border border-amber-500/30 text-amber-400
+    bg-amber-50 border border-amber-300 text-amber-700
   {% else %}
-    bg-brand-teal/10 border border-brand-teal/30 text-brand-teal
+    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
   {% endif %}">
   {{ message }}
 </div>
 {% endfor %}
 {% endif %}
 
-<div class="rounded-2xl p-6 glass">
+<div class="rounded-2xl p-6 surface">
   <div class="overflow-x-auto">
     <table class="dash-table w-full">
       <thead>
@@ -51,18 +51,18 @@
           <td class="font-semibold text-xs">
             {{ promotion.current_enrollment.student.full_name }}
           </td>
-          <td class="text-white/70">{{ promotion.current_enrollment.class_group }}</td>
-          <td class="text-white/70">{{ promotion.target_class }}</td>
-          <td class="text-white/70">{{ promotion.requested_by.full_name }}</td>
-          <td class="text-white/70">{{ promotion.request_date }}</td>
+          <td class="text-itca-navy/70">{{ promotion.current_enrollment.class_group }}</td>
+          <td class="text-itca-navy/70">{{ promotion.target_class }}</td>
+          <td class="text-itca-navy/70">{{ promotion.requested_by.full_name }}</td>
+          <td class="text-itca-navy/70">{{ promotion.request_date }}</td>
           <td>
             <span class="text-xs px-3 py-1 rounded-full font-medium
               {% if promotion.status == 'Approved' %}
-                bg-brand-teal/15 text-brand-teal
+                bg-itca-green-light text-itca-green-dark
               {% elif promotion.status == 'Rejected' %}
-                bg-red-500/15 text-red-400
+                bg-red-100 text-red-700
               {% else %}
-                bg-amber-500/15 text-amber-400
+                bg-amber-100 text-amber-700
               {% endif %}">
               {{ promotion.status }}
             </span>
@@ -73,26 +73,26 @@
             <div class="flex justify-end gap-2">
               <form method="post" action="{% url 'assessments:promotion_approve' promotion.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-brand-teal/15 text-brand-teal hover:opacity-80">
+                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-itca-green-light text-itca-green-dark hover:opacity-80">
                   Approve
                 </button>
               </form>
               <form method="post" action="{% url 'assessments:promotion_reject' promotion.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-red-500/15 text-red-400 hover:opacity-80">
+                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 hover:opacity-80">
                   Reject
                 </button>
               </form>
             </div>
             {% else %}
-              <span class="text-white/30 text-xs">{{ promotion.reviewed_by.full_name|default:"—" }}</span>
+              <span class="text-itca-navy/30 text-xs">{{ promotion.reviewed_by.full_name|default:"—" }}</span>
             {% endif %}
           </td>
           {% endif %}
         </tr>
         {% empty %}
         <tr>
-          <td colspan="7" class="text-center text-white/40 py-8">No promotion requests found.</td>
+          <td colspan="7" class="text-center text-itca-navy/40 py-8">No promotion requests found.</td>
         </tr>
         {% endfor %}
       </tbody>

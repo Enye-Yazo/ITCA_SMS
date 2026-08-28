@@ -1,5 +1,6 @@
 # assessments/models.py
 
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from admissions.models import Student
 from academics.models import ProgramModule
@@ -184,9 +185,8 @@ class InternationalExamAttempt(models.Model):
     )
 
     score = models.IntegerField(
-        null=True,
-        blank=True,
-        help_text="Numeric score if provided by the certifying body"
+        validators=[MinValueValidator(0), MaxValueValidator(1000)],
+        help_text="Score out of 1000 — 700 is the pass mark. Required."
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -206,6 +206,18 @@ class InternationalExamAttempt(models.Model):
             f"Attempt {self.attempt_number} — "
             f"{result}"
         )
+
+    @property
+    def percentage_score(self):
+        """
+        International exams are scored out of 1000 (700 = pass), but Exec
+        Admin dashboard calculations and comparisons against local
+        assessments are all done on a 0-100 scale — this is the single
+        place that conversion happens.
+        """
+        if self.score is None:
+            return None
+        return round((self.score / 1000) * 100, 1)
 
 
 # ─── Access Key ───────────────────────────────────────────────────────────────

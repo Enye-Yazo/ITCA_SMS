@@ -12,6 +12,30 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost').split(',')
 
+# Container Apps' ingress terminates HTTPS and forwards to the container
+# over plain HTTP, adding this header to say so. Without telling Django
+# that, it thinks every request is insecure — breaking secure cookies,
+# redirect handling, and request.is_secure() everywhere. Harmless locally
+# since runserver never sends this header itself.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Needed because CSRF checks validate the request's Origin/Referer against
+# this explicit list once a scheme is involved — ALLOWED_HOSTS alone isn't
+# enough. Reuses the same env var so one place controls both.
+CSRF_TRUSTED_ORIGINS = [
+    f'https://{host}' for host in ALLOWED_HOSTS if host not in ('localhost', '127.0.0.1')
+]
+
+# Only force HTTPS-only cookies once DEBUG is off — a local runserver
+# session over plain http would otherwise silently drop cookies.
+# Deliberately not setting SECURE_SSL_REDIRECT here: Container Apps'
+# ingress already enforces HTTPS for external traffic, and its internal
+# health probes hit the container directly over plain HTTP without the
+# forwarded-proto header — an app-level redirect would break those.
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 
 # ─── Applications ─────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -37,6 +61,9 @@ INSTALLED_APPS = [
 # ─── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Serves collected static files directly from the app container —
+    # no separate storage account/CDN needed for a site this size.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -79,6 +106,12 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
+        # Azure Database for PostgreSQL Flexible Server requires SSL by
+        # default; the local Docker container doesn't have SSL configured
+        # at all, so this is opt-in via env var rather than always-on.
+        'OPTIONS': (
+            {'sslmode': 'require'} if config('DB_SSL_REQUIRE', default=False, cast=bool) else {}
+        ),
     }
 }
 
@@ -151,6 +184,16 @@ STATIC_URL = '/static/'
 # Where Django collects static files for production
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Whitenoise serves these with cache-busting hashed filenames and gzip/br
+# compression baked in at collectstatic time — no CDN or storage account
+# needed. Falls back to plain serving if a referenced file is missing
+# from the manifest, rather than hard-erroring the whole page.
+STORAGES = {
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

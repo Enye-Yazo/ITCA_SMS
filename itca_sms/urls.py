@@ -1,12 +1,25 @@
 # itca_portal/urls.py
 
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
 
+def health_check(request):
+    """
+    Liveness/readiness probe target for Azure Container Apps. Deliberately
+    has no auth and does no DB query — a probe hitting this every few
+    seconds shouldn't cost a database round trip or ever get bounced into
+    the OIDC login flow.
+    """
+    return HttpResponse("ok")
+
+
 urlpatterns = [
+    path('healthz/', health_check, name='health_check'),
+
     # Django admin — emergency access only
     path('admin/', admin.site.urls),
 

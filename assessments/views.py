@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from .models import StudentModule, LocalAssessment, InternationalExamAttempt, Promotion
 from .forms import InternationalExamAttemptForm, PromotionRequestForm
 from academics.models import Enrollment, Class
+from admissions.models import Student
 
 
 def trainer_only(view_func):
@@ -218,18 +219,34 @@ def exam_attempt_list(request):
 
 @login_required
 @test_admin_only
+@transaction.atomic
 def exam_attempt_record(request):
     """
-    Records a new international exam attempt for a student's module.
+    Records a new international exam attempt. Student and Module are
+    chosen independently of any existing StudentModule — if the student
+    isn't already linked to that module (e.g. it's not one of their
+    defaults), one is created here as an Elective assignment, since
+    recording an exam attempt is exactly the kind of thing that should
+    establish that link rather than require it to already exist.
     The attempt number is computed automatically — sequential per
     student+module — never entered by hand.
     """
     if request.method == 'POST':
         form = InternationalExamAttemptForm(request.POST)
         if form.is_valid():
+            student = form.cleaned_data['student']
+            module = form.cleaned_data['module']
+
+            student_module, _ = StudentModule.objects.get_or_create(
+                student=student,
+                module=module,
+                defaults={'assignment_type': StudentModule.AssignmentType.ELECTIVE},
+            )
+
             attempt = form.save(commit=False)
+            attempt.student_module = student_module
             existing_attempts = InternationalExamAttempt.objects.filter(
-                student_module=attempt.student_module
+                student_module=student_module
             ).count()
             attempt.attempt_number = existing_attempts + 1
             attempt.save()
@@ -237,14 +254,20 @@ def exam_attempt_record(request):
             messages.success(
                 request,
                 f"Recorded attempt {attempt.attempt_number} for "
-                f"{attempt.student_module.student.full_name} — "
-                f"{attempt.student_module.module.module_code}."
+                f"{student.full_name} — {module.module_code} "
+                f"({attempt.score}/1000, {attempt.percentage_score}%)."
             )
             return redirect('assessments:exam_attempt_list')
     else:
         form = InternationalExamAttemptForm()
 
-    return render(request, 'assessments/exam_attempt_form.html', {'form': form})
+    students = Student.objects.select_related('applicant').order_by(
+        'applicant__first_name', 'applicant__last_name'
+    )
+    return render(request, 'assessments/exam_attempt_form.html', {
+        'form': form,
+        'students': students,
+    })
 
 
 # ─── Promotion Workflow ──────────────────────────────────────────────────────

@@ -9,7 +9,7 @@
     <circle
       cx="50" cy="50" r="38"
       fill="none"
-      stroke="rgba(255,255,255,0.1)"
+      stroke="rgba(20,27,45,0.08)"
       stroke-width="12"
     />
 
@@ -17,7 +17,7 @@
     <circle
       cx="50" cy="50" r="38"
       fill="none"
-      stroke="#00BFA5"
+      stroke="#2fb857"
       stroke-width="12"
       stroke-dasharray="{{ pass_rate|floatformat:1 }} 100"
       stroke-dashoffset="0"
@@ -42,7 +42,7 @@
   <!-- Centre label -->
   <div class="absolute inset-0 flex flex-col items-center justify-center">
     <span class="text-3xl font-bold">{{ pass_rate }}%</span>
-    <span class="text-white/50 text-xs">{% firstof label "Passing" %}</span>
+    <span class="text-itca-navy/50 text-xs">{% firstof label "Passing" %}</span>
   </div>
 </div>
 {% endwith %}

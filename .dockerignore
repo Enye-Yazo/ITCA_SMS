@@ -1,0 +1,20 @@
+# .dockerignore
+# Keeps secrets and dev-only cruft out of the image entirely — .env in
+# particular must never be baked in; real env vars come from Container
+# Apps' own secrets/env config at runtime instead.
+
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+.env
+node_modules/
+staticfiles/
+media/
+db.sqlite3
+Backdrops/
+*.md
+.claude/

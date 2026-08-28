@@ -5,8 +5,8 @@
 <form method="post">
   {% csrf_token %}
 
-  <div class="rounded-2xl p-6 mb-4 glass">
-    <p class="text-xs text-white/40 uppercase tracking-wider mb-4">
+  <div class="rounded-2xl p-6 mb-4 surface">
+    <p class="text-xs text-itca-navy/40 uppercase tracking-wider mb-4">
       Next of kin / emergency contact
     </p>
 
@@ -28,18 +28,18 @@
 
   <div class="flex justify-between items-center">
     <a href="{% url 'admissions:application_step' applicant.pk 3 %}"
-       class="text-sm text-white/40 hover:text-white/70 transition-colors">
+       class="text-sm text-itca-navy/40 hover:text-itca-navy/70 transition-colors">
       ← Back
     </a>
     <div class="flex gap-3">
       <button type="submit" name="action" value="draft"
-              class="px-4 py-2 rounded-lg text-sm text-white/60
-                     hover:text-white transition-colors glass">
+              class="px-4 py-2 rounded-lg text-sm text-itca-navy/60
+                     hover:text-itca-navy transition-colors surface">
         Save draft
       </button>
       <button type="submit"
               class="px-5 py-2 rounded-lg text-sm font-semibold
-                     bg-brand-teal text-brand-navy hover:opacity-90
+                     bg-itca-blue text-white hover:opacity-90
                      transition-opacity">
         Next — Review →
       </button>

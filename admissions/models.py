@@ -186,10 +186,12 @@ class Applicant(models.Model):
 
     @property
     def full_name(self):
-        return (
-            f"{self.first_name} {self.last_name}"
-            f"— {self.application_reference or 'Draft'}"
-            )
+        # Deliberately just the name — application_reference is shown as
+        # its own column/badge wherever it's needed (applications list,
+        # detail view), not appended here. This is also what Student.full_name
+        # delegates to, so a bare name here keeps every student-facing
+        # table, nav, and message clean of the reference number.
+        return f"{self.first_name} {self.last_name}"
     
     def save(self, *args, **kwargs):
         is_new = self.pk is None
