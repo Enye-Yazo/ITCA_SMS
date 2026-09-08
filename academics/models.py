@@ -265,3 +265,53 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.student} — {self.class_group}"
+
+# ─── Attendance ───────────────────────────────────────────────────────────────
+class AttendanceRecord(models.Model):
+    """
+    One row per student per calendar day, captured by their trainer on the
+    Attendance register. Absent/Late notes are free text (e.g. "arrived
+    after 08:30") — mirrors the trainer's daily register in the v6 mockup.
+    """
+
+    class Status(models.TextChoices):
+        PRESENT = 'Present', 'Present'
+        LATE = 'Late', 'Late'
+        ABSENT = 'Absent', 'Absent'
+
+    student = models.ForeignKey(
+        'admissions.Student',
+        on_delete=models.CASCADE,
+        related_name='attendance_records'
+    )
+
+    class_group = models.ForeignKey(
+        Class,
+        on_delete=models.CASCADE,
+        related_name='attendance_records'
+    )
+
+    recorded_by = models.ForeignKey(
+        'accounts.SystemUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='attendance_recorded'
+    )
+
+    date = models.DateField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PRESENT)
+    time_in = models.TimeField(null=True, blank=True)
+    notes = models.CharField(max_length=255, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'attendance_records'
+        verbose_name = 'Attendance Record'
+        verbose_name_plural = 'Attendance Records'
+        unique_together = ['student', 'date']
+        ordering = ['-date', 'student']
+
+    def __str__(self):
+        return f"{self.student.full_name} — {self.date} — {self.status}"

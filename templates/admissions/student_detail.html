@@ -23,13 +23,6 @@
     </div>
   </div>
   <div class="flex items-center gap-4">
-    {% if request.user.is_trainer and active_enrollment and active_enrollment.class_group.cohort == 'New' %}
-    <a href="{% url 'assessments:promotion_request' active_enrollment.pk %}"
-       class="px-4 py-2 rounded-lg text-sm font-semibold
-              bg-itca-blue text-white hover:opacity-90 transition-opacity">
-      Request Promotion
-    </a>
-    {% endif %}
     <a href="{% url 'admissions:student_list' %}" class="text-itca-navy/50 hover:text-itca-navy text-sm">
       ← Back to Students
     </a>
@@ -44,7 +37,29 @@
   </div>
   <div class="stat-card">
     <span class="text-itca-navy/50 text-xs uppercase tracking-wider">Student Email</span>
+    {% if request.user.is_exec_admin %}
+    <!-- Collapsed by default so this card matches its siblings' height —
+         only the edit form (and any layout risk that comes with it)
+         appears once the Exec Admin actually opens it. -->
+    <details>
+      <summary class="text-lg font-semibold cursor-pointer list-none flex items-center gap-2">
+        <span class="truncate">{{ student.student_email|default:"—" }}</span>
+        <span class="text-xs text-itca-blue font-medium shrink-0">Edit</span>
+      </summary>
+      <form method="post" action="{% url 'admissions:student_set_email' student.pk %}"
+            class="mt-2 flex flex-col gap-2">
+        {% csrf_token %}
+        <input type="email" name="student_email" value="{{ student.student_email|default:'' }}"
+               placeholder="name@itca.ac.za" class="text-sm">
+        <button type="submit" class="text-xs px-3 py-1.5 rounded-md font-medium self-start"
+                style="background: var(--color-itca-blue-light); color: var(--color-itca-blue-dark);">
+          Save
+        </button>
+      </form>
+    </details>
+    {% else %}
     <span class="text-lg font-semibold">{{ student.student_email|default:"—" }}</span>
+    {% endif %}
   </div>
   <div class="stat-card">
     <span class="text-itca-navy/50 text-xs uppercase tracking-wider">ID Number</span>
@@ -55,6 +70,32 @@
     <span class="text-lg font-semibold">{{ student.created_at|date:"d M Y" }}</span>
   </div>
 </div>
+
+<!-- ── Demographic Details (collapsed by default) ───────────────────────── -->
+<details class="rounded-2xl mb-8 surface overflow-hidden group">
+  <summary class="cursor-pointer select-none p-6 font-semibold text-lg flex items-center justify-between list-none">
+    <span>Demographic Details</span>
+    <span class="text-itca-navy/40 text-sm transition-transform group-open:rotate-180">▾</span>
+  </summary>
+  <div class="px-6 pb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+    {% include 'admissions/includes/review_field.html' with label="Date of birth" value=student.applicant.date_of_birth %}
+    {% include 'admissions/includes/review_field.html' with label="Gender" value=student.applicant.get_gender_display %}
+    {% include 'admissions/includes/review_field.html' with label="Nationality" value=student.applicant.nationality %}
+    {% include 'admissions/includes/review_field.html' with label="ID type" value=student.applicant.get_id_type_display %}
+    {% include 'admissions/includes/review_field.html' with label="Residential status" value=student.applicant.get_residential_status_display %}
+    {% include 'admissions/includes/review_field.html' with label="Disability status" value=student.applicant.disability_status|default:"None disclosed" %}
+    {% include 'admissions/includes/review_field.html' with label="School" value=student.applicant.school_name|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Last school year" value=student.applicant.last_school_year|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Personal email" value=student.applicant.personal_email|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Phone" value=student.applicant.phone|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Address" value=student.applicant.residential_address|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="City" value=student.applicant.city|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Province" value=student.applicant.province|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Postal code" value=student.applicant.postal_code|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="Referral source" value=student.applicant.referral_source|default:"—" %}
+    {% include 'admissions/includes/review_field.html' with label="POPIA consent" value=student.applicant.popi_consent|yesno:"Yes,No" %}
+  </div>
+</details>
 
 <!-- ── Modules & Local Assessments ───────────────────────────────────────── -->
 <div class="rounded-2xl p-6 mb-6 surface">
@@ -147,37 +188,6 @@
         {% empty %}
         <tr>
           <td colspan="5" class="text-center text-itca-navy/40 py-8">No enrollment history.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── Promotion History ─────────────────────────────────────────────────── -->
-<div class="rounded-2xl p-6 surface">
-  <h2 class="font-semibold text-lg mb-4">Promotion History</h2>
-  <div class="overflow-x-auto">
-    <table class="dash-table w-full">
-      <thead>
-        <tr>
-          <th>Requested</th>
-          <th>Target Class</th>
-          <th>Status</th>
-          <th>Reviewed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for promotion in promotions %}
-        <tr>
-          <td class="text-itca-navy/70">{{ promotion.request_date }}</td>
-          <td class="font-semibold text-xs">{{ promotion.target_class }}</td>
-          <td class="text-itca-navy/70">{{ promotion.status }}</td>
-          <td class="text-itca-navy/70">{{ promotion.review_date|default:"—" }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="text-center text-itca-navy/40 py-8">No promotion requests.</td>
         </tr>
         {% endfor %}
       </tbody>

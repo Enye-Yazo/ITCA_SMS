@@ -12,10 +12,10 @@
   <!-- Favicon — cropped from the ITCA logo mark, static/images/favicon.png -->
   <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}" />
 
-  <!-- Google Fonts — Archivo -->
+  <!-- Google Fonts — Inter (Redesign v6) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <!-- Compiled Tailwind CSS -->
   <link rel="stylesheet" href="{% static 'css/output.css' %}" />
@@ -23,77 +23,89 @@
   {% block extra_css %}{% endblock %}
 </head>
 
-<body class="min-h-screen">
+<body class="min-h-screen bg-itca-bg">
 
   <!-- ── Top Navigation ───────────────────────────────────────────────── -->
-  <nav class="surface-nav px-6 py-3 flex items-center gap-4">
+  <nav class="surface-nav px-8 flex items-center gap-1" style="height:56px">
 
     <!-- Logo -->
-    <div class="flex items-center gap-2 mr-auto">
+    <div class="flex items-center gap-2 mr-10">
       <img
         src="{% static 'images/logo.png' %}"
         alt="ITCA Logo"
-        class="h-8 w-auto"
+        class="h-6 w-auto"
       />
     </div>
 
     <!-- Navigation Links — shown based on user role. The active page's
-         link is blue/bold per the design; everything else is muted navy. -->
+         link is blue/bold with a bottom border per the v6 design;
+         everything else is muted slate. -->
+    <div class="flex items-stretch h-full">
     {% if request.user.is_exec_admin %}
     <a href="{% url 'dashboard:index' %}"
-       class="text-sm {% if request.resolver_match.view_name == 'dashboard:index' %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+       class="text-sm px-4 flex items-center border-b-2 {% if request.resolver_match.view_name == 'dashboard:index' %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
       Dashboard
     </a>
     {% endif %}
 
     {% if request.user.is_exec_admin or request.user.is_trainer %}
     <a href="{% url 'admissions:student_list' %}"
-       class="text-sm {% if 'students' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+       class="text-sm px-4 flex items-center border-b-2 {% if 'students' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
       Students
+    </a>
+    {% endif %}
+
+    {% if request.user.is_exec_admin %}
+    <a href="{% url 'accounts:trainer_list' %}"
+       class="text-sm px-4 flex items-center border-b-2 {% if 'trainers' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
+      Trainers
     </a>
     {% endif %}
 
     {% if request.user.is_trainer %}
     <a href="{% url 'assessments:grading_index' %}"
-       class="text-sm {% if 'grading' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
-      Grading
+       class="text-sm px-4 flex items-center border-b-2 {% if 'grading' in request.path or 'attendance' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
+      My Students
     </a>
     {% endif %}
 
     {% if request.user.is_test_admin %}
     <a href="{% url 'assessments:exam_attempt_list' %}"
-       class="text-sm {% if 'exams' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
-      Exams
+       class="text-sm px-4 flex items-center border-b-2 {% if 'exams' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
+      Exam Results
     </a>
-    {% endif %}
-
-    {% if request.user.is_trainer or request.user.is_exec_admin %}
-    <a href="{% url 'assessments:promotion_list' %}"
-       class="text-sm {% if 'promotions' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
-      Promotions
+    <a href="{% url 'assessments:booking_list' %}"
+       class="text-sm px-4 flex items-center border-b-2 {% if 'bookings' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
+      Bookings
     </a>
     {% endif %}
 
     {% if request.user.is_exec_admin %}
     <a href="{% url 'accounts:user_list' %}"
-       class="text-sm {% if request.resolver_match.view_name == 'accounts:user_list' %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+       class="text-sm px-4 flex items-center border-b-2 {% if request.resolver_match.view_name == 'accounts:user_list' %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
       Users
     </a>
+    <a href="{% url 'dashboard:reports' %}"
+       class="text-sm px-4 flex items-center border-b-2 {% if 'reports' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
+      Reports
+    </a>
     <a href="{% url 'academics:settings' %}"
-       class="text-sm {% if 'settings' in request.path %}text-itca-blue font-semibold{% else %}text-itca-navy/60 hover:text-itca-navy{% endif %} transition-colors">
+       class="text-sm px-4 flex items-center border-b-2 {% if 'settings' in request.path %}text-itca-blue font-semibold border-itca-blue{% else %}text-itca-muted hover:text-itca-navy border-transparent{% endif %} transition-colors">
       Settings
     </a>
     {% endif %}
-
-    <div class="w-px h-5 bg-itca-navy/15 mx-2"></div>
+    </div>
 
     <!-- User Info and Logout -->
-    <div class="flex items-center gap-4 text-sm">
-      <span class="text-itca-navy/60">
+    <div class="flex items-center gap-3 text-sm ml-auto">
+      <span class="text-itca-muted font-medium">
         {{ request.user.full_name }}
       </span>
+      <div class="avatar" style="width:34px;height:34px;font-size:0.75rem">
+        {{ request.user.first_name|slice:":1" }}{{ request.user.last_name|slice:":1" }}
+      </div>
       <a href="{% url 'oidc_logout' %}"
-         class="text-itca-navy/60 hover:text-itca-navy transition-colors">
+         class="text-itca-muted hover:text-itca-navy transition-colors">
         Sign out
       </a>
     </div>
@@ -101,7 +113,12 @@
   </nav>
 
   <!-- ── Page Content ──────────────────────────────────────────────────── -->
-  <main class="max-w-screen-xl mx-auto px-6 py-8">
+  <!-- Pages built around a full-bleed gradient hero (dashboard, settings,
+       users, trainers, reports, grading, exams, attendance, bookings)
+       override main_class to empty since they lay out their own hero +
+       padded sections; everything else keeps the default centred, padded
+       container so untouched templates don't lose their spacing. -->
+  <main class="{% block main_class %}max-w-screen-xl mx-auto px-6 py-8{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 

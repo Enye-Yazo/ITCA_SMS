@@ -1,0 +1,89 @@
+# .github/workflows/deploy.yml
+#
+# Builds the Docker image, pushes it to Docker Hub, and rolls the Azure
+# Container App to the new build — replaces the old manual "Edit and
+# deploy" click. Every push to main deploys automatically; see
+# docs/deployment.md for the one-time setup this depends on (Azure
+# service principal + federated credential, GitHub secrets).
+#
+# Deploys are tagged by commit SHA, not just :latest — `latest` alone can
+# fail to trigger a new Container Apps revision if the tag reference
+# doesn't change from Container Apps' point of view, and a SHA tag also
+# means any previous commit's exact image can be redeployed for rollback
+# (`az containerapp update --image <dockerhub-user>/itca-sms:<sha>`).
+
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+env:
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/itca-sms
+  RESOURCE_GROUP: itca-sms-rg
+  CONTAINER_APP_NAME: itca-sms-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for Azure OIDC login (no client secret stored)
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE }}:latest
+            ${{ env.DOCKERHUB_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy new image to Container App
+        run: |
+          az containerapp update \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "${DOCKERHUB_IMAGE}:${{ github.sha }}"
+
+      - name: Wait for the new revision to become healthy
+        run: |
+          # entrypoint.sh runs migrate + collectstatic on container start —
+          # give it a few seconds before hitting the health probe so a slow
+          # migration doesn't read as a failed deploy.
+          sleep 15
+          URL="https://$(az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn -o tsv)/healthz/"
+          echo "Checking $URL"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "$URL"; then
+              echo "Healthy."
+              exit 0
+            fi
+            echo "Not ready yet, retrying in 10s ($i/6)..."
+            sleep 10
+          done
+          echo "Health check failed after deploy — check the Container App logs."
+          exit 1

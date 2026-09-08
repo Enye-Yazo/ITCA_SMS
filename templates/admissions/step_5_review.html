@@ -84,6 +84,47 @@
 </div>
 {% endif %}
 
+{% if is_historical_onboarding %}
+<!-- Onboard — assign straight to an existing class, no admission decision needed -->
+<div class="rounded-2xl p-6 mb-6 surface">
+  <p class="text-xs text-itca-navy/40 uppercase tracking-wider mb-4">Assign to class</p>
+  <form method="post" action="{% url 'admissions:onboard_confirm' applicant.pk %}"
+        class="flex flex-wrap items-end gap-4">
+    {% csrf_token %}
+    <div>
+      <label class="text-sm text-itca-navy/70 block mb-1">Class</label>
+      <select name="class_id" required class="rounded-lg border border-itca-navy/20 px-3 py-2 text-sm min-w-[16rem]">
+        <option value="" disabled selected>Select a class</option>
+        {% for c in available_classes %}
+        <option value="{{ c.id }}">{{ c }} — {{ c.trainer|default:"Unassigned trainer" }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-sm text-itca-navy/70 block mb-1">Enrolment start date</label>
+      <input type="date" name="start_date" required class="rounded-lg border border-itca-navy/20 px-3 py-2 text-sm">
+    </div>
+    <button type="submit"
+            class="px-6 py-2 rounded-lg text-sm font-semibold
+                   bg-itca-blue text-white hover:opacity-90 transition-opacity"
+            {% if not available_classes %}disabled{% endif %}>
+      Onboard as student
+    </button>
+  </form>
+  {% if not available_classes %}
+  <p class="text-amber-700 text-xs mt-3">
+    No active classes exist yet for {{ applicant.program }} at {{ applicant.campus }} —
+    create one in Settings first.
+  </p>
+  {% endif %}
+</div>
+<div>
+  <a href="{% url 'admissions:application_step' applicant.pk 4 %}"
+     class="text-sm text-itca-navy/40 hover:text-itca-navy/70 transition-colors">
+    ← Back
+  </a>
+</div>
+{% else %}
 <!-- Submit -->
 <div class="flex justify-between items-center">
   <a href="{% url 'admissions:application_step' applicant.pk 4 %}"
@@ -101,5 +142,6 @@
     </button>
   </form>
 </div>
+{% endif %}
 
 {% endblock %}

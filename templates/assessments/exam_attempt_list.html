@@ -2,23 +2,29 @@
 {% extends 'base.html' %}
 
 {% block title %}International Exams — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
 
 {% block content %}
 
-<!-- ── Header ────────────────────────────────────────────────────────────── -->
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-bold">International Exam Attempts</h1>
-    <p class="text-itca-navy/40 text-sm mt-1">
-      {{ attempts.count }} attempt{{ attempts.count|pluralize }} recorded
-    </p>
+<!-- ── Hero + Tabs ───────────────────────────────────────────────────────── -->
+<div class="surface-hero px-8 pt-8 pb-0">
+  <div class="relative z-10 flex items-end justify-between flex-wrap gap-4">
+    <div>
+      <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Test Administration</div>
+      <h1 class="text-3xl font-extrabold text-white mb-1.5">Exam Results</h1>
+      <p class="text-white/55 text-sm">{{ attempts.count }} attempt{{ attempts.count|pluralize }} recorded</p>
+    </div>
+    <a href="{% url 'assessments:exam_attempt_record' %}" class="btn-primary !bg-white !text-itca-navy mb-1">
+      + Record attempt
+    </a>
   </div>
-  <a href="{% url 'assessments:exam_attempt_record' %}"
-     class="px-5 py-2 rounded-lg text-sm font-semibold
-            bg-itca-blue text-white hover:opacity-90 transition-opacity">
-    + Record attempt
-  </a>
+  <div class="flex gap-0 border-b border-white/10 mt-6 relative z-10">
+    <a href="{% url 'assessments:exam_attempt_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">Exam Results</a>
+    <a href="{% url 'assessments:booking_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Bookings</a>
+  </div>
 </div>
+
+<div class="px-8 py-6">
 
 <!-- ── Messages ──────────────────────────────────────────────────────────── -->
 {% if messages %}
@@ -54,48 +60,86 @@
   </select>
 </form>
 
-<!-- ── Attempts Table ────────────────────────────────────────────────────── -->
-<div class="rounded-2xl p-6 surface">
-  <div class="overflow-x-auto">
-    <table class="dash-table w-full">
-      <thead>
-        <tr>
-          <th>Student ID</th>
-          <th>Name</th>
-          <th>Module</th>
-          <th class="text-right">Attempt #</th>
-          <th>Date</th>
-          <th>Result</th>
-          <th class="text-right">Score / 1000</th>
-          <th class="text-right">%</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for attempt in attempts %}
-        <tr>
-          <td class="font-semibold text-xs">{{ attempt.student_module.student.student_id_code }}</td>
-          <td>{{ attempt.student_module.student.full_name }}</td>
-          <td class="text-itca-navy/70">{{ attempt.student_module.module.module_code }}</td>
-          <td class="text-right text-itca-navy/70">{{ attempt.attempt_number }}</td>
-          <td class="text-itca-navy/70">{{ attempt.exam_date }}</td>
-          <td>
-            {% if attempt.exam_result %}
-              <span class="score-high">Passed</span>
-            {% else %}
-              <span class="score-low">Failed</span>
-            {% endif %}
-          </td>
-          <td class="text-right text-itca-navy/70">{{ attempt.score }}</td>
-          <td class="text-right text-itca-navy/70">{{ attempt.percentage_score }}%</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="8" class="text-center text-itca-navy/40 py-8">No exam attempts recorded yet.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<!-- ── Student Cards — click a row to expand its exam history ──────────────── -->
+<div class="flex flex-col gap-3">
+  {% for group in grouped_attempts %}
+  <div class="surface overflow-hidden exam-card">
+    <!-- Clickable header row -->
+    <div class="flex items-center gap-4 px-6 py-4 cursor-pointer bg-itca-surface exam-card-header"
+         onclick="this.closest('.exam-card').classList.toggle('exam-card-open')">
+      <div class="avatar shrink-0" style="width:42px;height:42px;border-radius:0.625rem">
+        {{ group.student.applicant.first_name|slice:":1" }}{{ group.student.applicant.last_name|slice:":1" }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-[15px]">{{ group.student.full_name }}</div>
+        <div class="text-xs text-itca-muted mt-0.5">
+          {{ group.student.program.program_name }} · {{ group.student.student_id_code }}
+          {% if group.student.student_email %} · <span class="text-itca-blue">{{ group.student.student_email }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="flex items-center gap-2.5 shrink-0">
+        {% if group.passed_count %}<span class="badge badge-green">{{ group.passed_count }} Passed</span>{% endif %}
+        {% if group.failed_count %}<span class="badge badge-red">{{ group.failed_count }} Failed</span>{% endif %}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-itca-blue exam-card-chevron transition-transform">
+          <path d="M6 9l6 6 6-6"></path>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Expanded detail -->
+    <div class="exam-card-body px-6 pb-5 hidden">
+      <div class="overflow-x-auto">
+        <table class="dash-table w-full mt-1">
+          <thead>
+            <tr>
+              <th>Certification</th>
+              <th>Exam Date</th>
+              <th class="text-center">Score</th>
+              <th class="text-center">Pass Mark</th>
+              <th class="text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for attempt in group.attempts %}
+            <tr>
+              <td class="font-semibold">{{ attempt.student_module.module.module_code }}</td>
+              <td class="text-itca-muted">{{ attempt.exam_date }}</td>
+              <td class="text-center">
+                <span class="font-bold">{{ attempt.score }}</span>
+                <span class="text-itca-muted text-xs"> / 1000</span>
+              </td>
+              <td class="text-center text-itca-muted">700</td>
+              <td class="text-center">
+                <span class="badge {% if attempt.exam_result %}badge-green{% else %}badge-red{% endif %}">
+                  {% if attempt.exam_result %}Passed{% else %}Failed{% endif %}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="flex gap-2 mt-3">
+        <a href="{% url 'assessments:exam_attempt_record' %}" class="btn-primary !text-xs !py-2">+ Enter Result</a>
+        <a href="{% url 'assessments:booking_list' %}" class="btn-secondary !text-xs !py-2">Book Exam</a>
+      </div>
+    </div>
   </div>
+  {% empty %}
+  <div class="surface text-center text-itca-muted py-10">No exam attempts recorded yet.</div>
+  {% endfor %}
 </div>
 
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  .exam-card-body { display: none; }
+  .exam-card-open .exam-card-body { display: block; }
+  .exam-card-open .exam-card-header { background: #f8fafc; }
+  .exam-card-open .exam-card-chevron { transform: rotate(180deg); }
+  .exam-card.exam-card-open { border-color: var(--color-itca-blue); }
+</style>
 {% endblock %}

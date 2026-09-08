@@ -1,0 +1,73 @@
+<!-- templates/accounts/trainer_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Trainers — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<div class="surface-hero px-8 pt-8 pb-7">
+  <div>
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Staff</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1">Trainers</h1>
+    <p class="text-white/55 text-sm">Manage trainers, their program assignments and student loads</p>
+  </div>
+</div>
+
+<div class="px-8">
+  <div class="grid grid-cols-4 gap-3.5 pt-5">
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">Active Trainers</div>
+      <div class="text-3xl font-extrabold">{{ active_trainer_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">Total Students Assigned</div>
+      <div class="text-3xl font-extrabold">{{ total_students }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">Avg Pass Rate</div>
+      <div class="text-3xl font-extrabold">{{ avg_pass_rate }}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">Programs Covered</div>
+      <div class="text-3xl font-extrabold">{{ program_count }}</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4 py-6">
+    {% for row in rows %}
+    <div class="surface overflow-hidden">
+      <div class="p-5 flex items-center gap-3.5 border-b border-itca-border">
+        <div class="avatar" style="width:48px;height:48px;border-radius:0.75rem;font-size:1.05rem">
+          {{ row.trainer.first_name|slice:":1" }}{{ row.trainer.last_name|slice:":1" }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold">{{ row.trainer.full_name }}</div>
+          <div class="text-xs text-itca-muted mt-0.5">{{ row.program_name|default:"No active students" }}</div>
+        </div>
+        <span class="badge {% if row.trainer.is_active %}badge-green{% else %}badge-slate{% endif %}">
+          <span class="w-1.5 h-1.5 rounded-full {% if row.trainer.is_active %}bg-itca-green{% else %}bg-itca-muted{% endif %}"></span>
+          {% if row.trainer.is_active %}Active{% else %}Inactive{% endif %}
+        </span>
+      </div>
+      <div class="grid grid-cols-2 gap-3.5 p-5">
+        <div>
+          <div class="text-[10px] uppercase tracking-wide text-itca-muted mb-1">Students</div>
+          <div class="text-xl font-bold">{{ row.student_count }}</div>
+        </div>
+        <div>
+          <div class="text-[10px] uppercase tracking-wide text-itca-muted mb-1">Pass Rate</div>
+          <div class="text-xl font-bold">{% if row.pass_rate is not None %}{{ row.pass_rate }}%{% else %}—{% endif %}</div>
+        </div>
+        <div>
+          <div class="text-[10px] uppercase tracking-wide text-itca-muted mb-1">Campus</div>
+          <div class="text-sm font-semibold">{{ row.trainer.campus.campus_code|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-span-3 text-center text-itca-muted text-sm py-10">No trainers yet.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

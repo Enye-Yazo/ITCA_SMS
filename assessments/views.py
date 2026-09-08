@@ -10,9 +10,8 @@ from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
-from .models import StudentModule, LocalAssessment, InternationalExamAttempt, Promotion
-from .forms import InternationalExamAttemptForm, PromotionRequestForm
-from academics.models import Enrollment, Class
+from .models import StudentModule, LocalAssessment, InternationalExamAttempt
+from .forms import InternationalExamAttemptForm
 from admissions.models import Student
 
 
@@ -209,8 +208,33 @@ def exam_attempt_list(request):
     from academics.models import Module
     modules = Module.objects.filter(is_international_assessment=True).order_by('module_code')
 
+    # Grouped by student for the expandable card list view — built from the
+    # same filtered/ordered queryset the flat table uses, so both views
+    # always agree on which attempts are shown.
+    student_groups = {}
+    student_order = []
+    for attempt in attempts:
+        student = attempt.student_module.student
+        if student.id not in student_groups:
+            student_groups[student.id] = {
+                'student': student,
+                'attempts': [],
+                'passed_count': 0,
+                'failed_count': 0,
+            }
+            student_order.append(student.id)
+        group = student_groups[student.id]
+        group['attempts'].append(attempt)
+        if attempt.exam_result:
+            group['passed_count'] += 1
+        else:
+            group['failed_count'] += 1
+
+    grouped_attempts = [student_groups[sid] for sid in student_order]
+
     context = {
         'attempts': attempts,
+        'grouped_attempts': grouped_attempts,
         'modules': modules,
         'filters': {'module': module_filter, 'result': result_filter},
     }
@@ -270,150 +294,93 @@ def exam_attempt_record(request):
     })
 
 
-# ─── Promotion Workflow ──────────────────────────────────────────────────────
+# ── Exam Bookings ──────────────────────────────────────────────────────────
 @login_required
-@trainer_only
-def promotion_request(request, enrollment_id):
+@test_admin_only
+def booking_list(request):
     """
-    A Trainer requests promoting one of their own students from their
-    current (New) enrollment to a Returning class.
-    Only offers Returning classes in the same program and campus —
-    the trainer cannot promote a student into an unrelated program.
+    Upcoming and past exam bookings, newest first. Test Admin creates a
+    booking here ahead of time, then records the actual result later via
+    Exam Results once the sitting has happened.
     """
-    enrollment = get_object_or_404(
-        Enrollment.objects.select_related('student', 'class_group'),
-        pk=enrollment_id
-    )
-
-    if enrollment.student.trainer_id != request.user.id:
-        messages.error(request, "You may only request promotions for your own students.")
-        return redirect('assessments:grading_index')
-
-    if enrollment.status != Enrollment.EnrollmentStatus.ACTIVE:
-        messages.error(request, "Only students with an active enrollment can be promoted.")
-        return redirect('assessments:grading_index')
-
-    if enrollment.promotion_requests.filter(
-        status=Promotion.PromotionStatus.PENDING
-    ).exists():
-        messages.error(request, "A promotion request is already pending for this student.")
-        return redirect('assessments:promotion_list')
+    from .models import ExamBooking
+    from .forms import ExamBookingForm
 
     if request.method == 'POST':
-        form = PromotionRequestForm(request.POST)
+        form = ExamBookingForm(request.POST)
         if form.is_valid():
-            promotion = form.save(commit=False)
-            promotion.current_enrollment = enrollment
-            promotion.requested_by = request.user
-            promotion.save()
-            messages.success(
-                request,
-                f"Promotion request submitted for {enrollment.student.full_name}."
+            student = form.cleaned_data['student']
+            module = form.cleaned_data['module']
+            student_module, _ = StudentModule.objects.get_or_create(
+                student=student, module=module,
+                defaults={'assignment_type': StudentModule.AssignmentType.ELECTIVE},
             )
-            return redirect('assessments:promotion_list')
+            booking = form.save(commit=False)
+            booking.student_module = student_module
+            booking.booked_by = request.user
+            booking.save()
+            messages.success(request, f"Exam booked for {student.full_name} - {module.module_code}.")
+            return redirect('assessments:booking_list')
     else:
-        form = PromotionRequestForm()
+        form = ExamBookingForm()
 
-    # Restrict target class choices to Returning classes in the same
-    # program and campus as the student's current class.
-    form.fields['target_class'].queryset = Class.objects.filter(
-        program=enrollment.class_group.program,
-        campus=enrollment.class_group.campus,
-        cohort=Class.CohortChoices.RETURNING,
-        is_active=True,
-    ).exclude(pk=enrollment.class_group_id)
+    bookings = ExamBooking.objects.select_related(
+        'student_module__student__applicant', 'student_module__module'
+    ).order_by('exam_date', 'exam_time')
 
-    return render(request, 'assessments/promotion_request.html', {
-        'form': form,
-        'enrollment': enrollment,
-    })
+    upcoming = bookings.filter(status=ExamBooking.BookingStatus.SCHEDULED)
+
+    # -- Month calendar grid --------------------------------------------------
+    import calendar as cal_module
+    from datetime import date as date_cls
+
+    today = date_cls.today()
+    try:
+        year = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
+    except ValueError:
+        year, month = today.year, today.month
+
+    bookings_by_day = {}
+    for b in bookings.filter(exam_date__year=year, exam_date__month=month):
+        bookings_by_day.setdefault(b.exam_date.day, []).append(b)
+
+    cal = cal_module.Calendar(firstweekday=0)  # Monday first
+    weeks = []
+    for week in cal.monthdayscalendar(year, month):
+        week_rows = []
+        for day in week:
+            week_rows.append({
+                'day': day,
+                'bookings': bookings_by_day.get(day, []) if day else [],
+            })
+        weeks.append(week_rows)
+
+    prev_month = month - 1 or 12
+    prev_year = year - 1 if month == 1 else year
+    next_month = month + 1 if month < 12 else 1
+    next_year = year + 1 if month == 12 else year
+
+    context = {
+        'bookings': bookings, 'upcoming': upcoming, 'form': form,
+        'weeks': weeks,
+        'month_label': date_cls(year, month, 1).strftime('%B %Y'),
+        'prev_year': prev_year, 'prev_month': prev_month,
+        'next_year': next_year, 'next_month': next_month,
+    }
+    return render(request, 'assessments/booking_list.html', context)
 
 
+# ── Trainer Int. Cert view (read-only) ───────────────────────────────────────
 @login_required
-def promotion_list(request):
+@trainer_only
+def trainer_intcert_view(request):
     """
-    Trainers see their own promotion requests and history.
-    Exec Admins see every request, with pending ones actionable.
+    Read-only view of international exam results for the trainer's own
+    students - recorded by the Test Admin, trainers cannot edit here.
     """
-    if not (request.user.is_trainer or request.user.is_exec_admin):
-        messages.error(request, "You do not have permission to view promotions.")
-        return redirect('dashboard:index')
+    attempts = InternationalExamAttempt.objects.select_related(
+        'student_module__student__applicant', 'student_module__module'
+    ).filter(student_module__student__trainer=request.user).order_by('-exam_date')
 
-    promotions = Promotion.objects.select_related(
-        'current_enrollment__student', 'current_enrollment__student__applicant',
-        'current_enrollment__class_group', 'target_class',
-        'requested_by', 'reviewed_by',
-    ).order_by('-request_date')
-
-    if request.user.is_trainer:
-        promotions = promotions.filter(requested_by=request.user)
-
-    return render(request, 'assessments/promotion_list.html', {'promotions': promotions})
-
-
-@login_required
-@require_POST
-@transaction.atomic
-def promotion_approve(request, promotion_id):
-    """
-    Approves a promotion: marks the current enrollment Promoted and
-    creates a new Active enrollment in the target class.
-    """
-    if not request.user.is_exec_admin:
-        messages.error(request, "Only Exec Admins can approve promotions.")
-        return redirect('dashboard:index')
-
-    promotion = get_object_or_404(
-        Promotion.objects.select_related('current_enrollment', 'target_class'),
-        pk=promotion_id
-    )
-
-    if promotion.status != Promotion.PromotionStatus.PENDING:
-        messages.error(request, "This promotion request has already been reviewed.")
-        return redirect('assessments:promotion_list')
-
-    promotion.current_enrollment.status = Enrollment.EnrollmentStatus.PROMOTED
-    promotion.current_enrollment.end_date = timezone.now().date()
-    promotion.current_enrollment.save()
-
-    Enrollment.objects.create(
-        student=promotion.current_enrollment.student,
-        class_group=promotion.target_class,
-        start_date=timezone.now().date(),
-        status=Enrollment.EnrollmentStatus.ACTIVE,
-    )
-
-    promotion.status = Promotion.PromotionStatus.APPROVED
-    promotion.reviewed_by = request.user
-    promotion.review_date = timezone.now().date()
-    promotion.save()
-
-    messages.success(
-        request,
-        f"{promotion.current_enrollment.student.full_name} promoted to "
-        f"{promotion.target_class}."
-    )
-    return redirect('assessments:promotion_list')
-
-
-@login_required
-@require_POST
-def promotion_reject(request, promotion_id):
-    """Rejects a promotion request. The student's current enrollment is untouched."""
-    if not request.user.is_exec_admin:
-        messages.error(request, "Only Exec Admins can reject promotions.")
-        return redirect('dashboard:index')
-
-    promotion = get_object_or_404(Promotion, pk=promotion_id)
-
-    if promotion.status != Promotion.PromotionStatus.PENDING:
-        messages.error(request, "This promotion request has already been reviewed.")
-        return redirect('assessments:promotion_list')
-
-    promotion.status = Promotion.PromotionStatus.REJECTED
-    promotion.reviewed_by = request.user
-    promotion.review_date = timezone.now().date()
-    promotion.save()
-
-    messages.warning(request, "Promotion request rejected.")
-    return redirect('assessments:promotion_list')
+    return render(request, 'assessments/trainer_intcert.html', {'attempts': attempts})

@@ -14,11 +14,17 @@
     </p>
   </div>
   {% if request.user.is_data_capturer or request.user.is_exec_admin %}
-  <a href="{% url 'admissions:application_new' %}"
-     class="px-5 py-2 rounded-lg text-sm font-semibold
-            bg-itca-blue text-white hover:opacity-90 transition-opacity">
-    + New application
-  </a>
+  <div class="flex items-center gap-3">
+    <a href="{% url 'admissions:onboard_new' %}"
+       class="btn-secondary">
+      Onboard existing student
+    </a>
+    <a href="{% url 'admissions:application_new' %}"
+       class="px-5 py-2 rounded-lg text-sm font-semibold
+              bg-itca-blue text-white hover:opacity-90 transition-opacity">
+      + New application
+    </a>
+  </div>
   {% endif %}
 </div>
 

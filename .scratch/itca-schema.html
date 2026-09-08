@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<title>ITCA Schema Atlas</title>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root{
+  --navy:#0f172a;
+  --navy-soft:#1e3a5f;
+  --blue:#2563eb;
+  --blue-light:#dbeafe;
+  --blue-dark:#1d4ed8;
+  --cyan:#0ea5e9;
+  --purple:#8b5cf6;
+  --green:#16a34a;
+  --green-bg:#dcfce7;
+  --amber:#d97706;
+  --amber-bg:#fef3c7;
+  --red:#dc2626;
+  --red-bg:#fef2f2;
+
+  --bg:#f7f8fa;
+  --surface:#ffffff;
+  --surface-soft:#f1f5f9;
+  --border:#e2e8f0;
+  --text:#0f172a;
+  --text-muted:#64748b;
+  --text-faint:#94a3b8;
+  --code-bg:#0f172a;
+  --code-text:#e2e8f0;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1220;
+    --surface:#111a2e;
+    --surface-soft:#0f1729;
+    --border:#233047;
+    --text:#e7ecf5;
+    --text-muted:#93a1bd;
+    --text-faint:#5f6d8a;
+    --blue-light:#1c2f52;
+    --blue-dark:#8fb4f7;
+    --green-bg:#0f2a1c;
+    --green:#4ade80;
+    --amber-bg:#2c210a;
+    --amber:#fbbf24;
+    --red-bg:#2a1414;
+    --red:#f87171;
+    --code-bg:#050a14;
+    --code-text:#c9d4e8;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220;
+  --surface:#111a2e;
+  --surface-soft:#0f1729;
+  --border:#233047;
+  --text:#e7ecf5;
+  --text-muted:#93a1bd;
+  --text-faint:#5f6d8a;
+  --blue-light:#1c2f52;
+  --blue-dark:#8fb4f7;
+  --green-bg:#0f2a1c;
+  --green:#4ade80;
+  --amber-bg:#2c210a;
+  --amber:#fbbf24;
+  --red-bg:#2a1414;
+  --red:#f87171;
+  --code-bg:#050a14;
+  --code-text:#c9d4e8;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--blue-light)}
+
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+
+/* ── Layout shell ─────────────────────────────────────────────────────── */
+.shell{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  min-height:100vh;
+}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .sidebar{position:static !important;height:auto !important}
+}
+
+.sidebar{
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:28px 22px;
+}
+.sidebar .brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:4px;
+}
+.brand .mark{
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-soft) 55%,var(--blue) 100%);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:13px;flex-shrink:0;
+}
+.brand .name{font-weight:800;font-size:15px;letter-spacing:-0.01em}
+.sidebar .sub{
+  font-size:11px;color:var(--text-faint);
+  margin:2px 0 26px 40px;
+}
+.nav-group{margin-bottom:22px}
+.nav-group h4{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:0.09em;
+  color:var(--text-faint);margin:0 0 8px;font-weight:700;
+}
+.nav-group a{
+  display:flex;align-items:baseline;gap:8px;
+  font-size:13px;color:var(--text-muted);text-decoration:none;
+  padding:5px 8px;margin:0 -8px;border-radius:6px;
+  transition:background .12s, color .12s;
+}
+.nav-group a:hover{background:var(--surface-soft);color:var(--text)}
+.nav-group a .count{
+  margin-left:auto;font-family:'JetBrains Mono',monospace;
+  font-size:10.5px;color:var(--text-faint);
+}
+
+/* ── Main content ─────────────────────────────────────────────────────── */
+main{padding:44px 48px 90px;max-width:1180px}
+@media (max-width:900px){main{padding:32px 20px 70px}}
+
+.eyebrow{
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;
+  color:var(--blue);margin-bottom:10px;
+}
+h1{
+  font-size:2.4rem;font-weight:800;letter-spacing:-0.02em;margin:0 0 10px;
+  text-wrap:balance;
+}
+.lede{
+  font-size:15.5px;line-height:1.65;color:var(--text-muted);
+  max-width:66ch;margin:0 0 30px;
+}
+
+.meta-row{
+  display:flex;gap:10px;flex-wrap:wrap;margin-bottom:44px;
+}
+.meta-pill{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:8px 13px;font-size:12.5px;color:var(--text-muted);
+}
+.meta-pill strong{color:var(--text);font-weight:700}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+
+section{margin-bottom:56px;scroll-margin-top:24px}
+section > h2{
+  font-size:1.4rem;font-weight:800;letter-spacing:-0.01em;
+  margin:0 0 6px;
+  display:flex;align-items:center;gap:12px;
+}
+section > h2 .idx{
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;
+  color:var(--text-faint);
+}
+section > p.desc{
+  color:var(--text-muted);font-size:14px;line-height:1.6;
+  max-width:70ch;margin:0 0 22px;
+}
+
+/* ── Diagram card ─────────────────────────────────────────────────────── */
+.diagram-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 1px 3px rgba(15,23,42,.06);
+}
+.diagram-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;border-bottom:1px solid var(--border);
+  background:var(--surface-soft);
+}
+.diagram-toolbar .label{
+  font-size:12px;font-weight:600;color:var(--text-muted);
+  display:flex;align-items:center;gap:8px;
+}
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.legend span{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-muted);
+}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.diagram-body{
+  padding:22px;
+  overflow-x:auto;
+}
+.diagram-body pre.mermaid{margin:0}
+
+/* ── Table reference cards ────────────────────────────────────────────── */
+.table-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+  gap:16px;
+}
+.tcard{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  scroll-margin-top:24px;
+}
+.tcard-head{
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface-soft);
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+}
+.tcard-head .names{display:flex;flex-direction:column;gap:2px}
+.tcard-head .model{
+  font-size:10.5px;color:var(--text-faint);font-weight:600;
+  text-transform:uppercase;letter-spacing:0.06em;
+}
+.tcard-head .table{
+  font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13.5px;
+}
+.tcard-head .rowcount{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);
+  white-space:nowrap;
+}
+.tcard table{width:100%;border-collapse:collapse;font-size:12.5px}
+.tcard td{
+  padding:7px 18px;
+  border-top:1px solid var(--border);
+  vertical-align:baseline;
+}
+.tcard tr:first-child td{border-top:none}
+.tcard td.col{
+  font-family:'JetBrains Mono',monospace;font-weight:500;
+  white-space:nowrap;
+}
+.tcard td.type{
+  color:var(--text-faint);font-family:'JetBrains Mono',monospace;font-size:11.5px;
+  white-space:nowrap;
+}
+.tcard td.flags{text-align:right;white-space:nowrap}
+
+.tag{
+  display:inline-flex;align-items:center;
+  font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;font-weight:700;letter-spacing:0.02em;
+  padding:1.5px 6px;border-radius:4px;margin-left:5px;
+}
+.tag-pk{background:var(--blue-light);color:var(--blue-dark)}
+.tag-fk{background:var(--surface-soft);color:var(--text-muted);border:1px solid var(--border)}
+.tag-uk{background:var(--amber-bg);color:var(--amber)}
+.tag-null{background:transparent;color:var(--text-faint);border:1px dashed var(--border)}
+.tag-new{background:var(--green-bg);color:var(--green)}
+
+.tcard-foot{
+  padding:9px 18px;border-top:1px solid var(--border);
+  font-size:11px;color:var(--text-faint);background:var(--surface-soft);
+}
+
+/* ── New-feature callout ──────────────────────────────────────────────── */
+.callout{
+  border:1px solid var(--border);
+  border-left:3px solid var(--green);
+  background:var(--surface);
+  border-radius:0 10px 10px 0;
+  padding:16px 20px;
+  margin-bottom:26px;
+  font-size:13.5px;
+  line-height:1.6;
+  color:var(--text-muted);
+}
+.callout strong{color:var(--text)}
+.callout code{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  background:var(--surface-soft);padding:1px 5px;border-radius:4px;color:var(--text);
+}
+
+footer{
+  border-top:1px solid var(--border);
+  padding:26px 48px;
+  font-size:12px;color:var(--text-faint);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+}
+</style>
+
+<div class="shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="mark">IT</div>
+      <div class="name">Schema Atlas</div>
+    </div>
+    <div class="sub">ITCA Student Management System</div>
+
+    <div class="nav-group">
+      <h4>Overview</h4>
+      <a href="#erd">Entity relationship diagram</a>
+    </div>
+
+    <div class="nav-group">
+      <h4>accounts</h4>
+      <a href="#system_users">system_users <span class="count">13</span></a>
+    </div>
+
+    <div class="nav-group">
+      <h4>academics</h4>
+      <a href="#campuses">campuses <span class="count">5</span></a>
+      <a href="#programs">programs <span class="count">5</span></a>
+      <a href="#modules">modules <span class="count">8</span></a>
+      <a href="#program_modules">program_modules <span class="count">5</span></a>
+      <a href="#classes">classes <span class="count">9</span></a>
+      <a href="#enrollments">enrollments <span class="count">7</span></a>
+      <a href="#attendance_records">attendance_records <span class="count">10</span></a>
+    </div>
+
+    <div class="nav-group">
+      <h4>admissions</h4>
+      <a href="#applicant_details">applicant_details <span class="count">28</span></a>
+      <a href="#student_contact">student_contact <span class="count">8</span></a>
+      <a href="#student_details">student_details <span class="count">6</span></a>
+      <a href="#alumni">alumni <span class="count">5</span></a>
+    </div>
+
+    <div class="nav-group">
+      <h4>assessments</h4>
+      <a href="#student_modules">student_modules <span class="count">7</span></a>
+      <a href="#local_assessments">local_assessments <span class="count">10</span></a>
+      <a href="#int_exam_attempts">int_exam_attempts <span class="count">7</span></a>
+      <a href="#exam_bookings">exam_bookings <span class="count">8</span></a>
+      <a href="#access_keys">access_keys <span class="count">5</span></a>
+      <a href="#learning_platform_credentials">learning_platform_credentials <span class="count">7</span></a>
+      <a href="#promotions">promotions <span class="count">9</span></a>
+    </div>
+  </nav>
+
+  <!-- ── Main ────────────────────────────────────────────────────────── -->
+  <main>
+
+    <div class="eyebrow">Reverse-engineered from the live database</div>
+    <h1>ITCA Schema Atlas</h1>
+    <p class="lede">
+      Every table, column, and foreign key currently in <code class="mono" style="font-size:13px">itca_db</code> —
+      introspected directly from Postgres (<code class="mono" style="font-size:13px">information_schema</code>), not copied from
+      <code class="mono" style="font-size:13px">models.py</code>. 19 domain tables across four Django apps, plus the
+      auth/session plumbing Django itself manages.
+    </p>
+
+    <div class="meta-row">
+      <div class="meta-pill"><span class="dot"></span> <strong>19</strong>&nbsp;domain tables</div>
+      <div class="meta-pill"><strong>42</strong>&nbsp;foreign keys</div>
+      <div class="meta-pill"><strong>17</strong>&nbsp;migrations applied</div>
+      <div class="meta-pill">Postgres 16 · <span class="mono">itca_db</span></div>
+      <div class="meta-pill"><span class="tag tag-new" style="margin-left:0">NEW</span>&nbsp;2 tables this session</div>
+    </div>
+
+    <div class="callout">
+      <strong>What changed this session:</strong> <code>attendance_records</code> (academics) and <code>exam_bookings</code>
+      (assessments) were added to support the Redesign v6 Attendance register and Test Admin Bookings screens.
+      Both were verified against the live database after migration — column types, nullability and every foreign
+      key below were read back from Postgres itself, not assumed from the model source.
+    </div>
+
+    <!-- ══ ERD ══ -->
+    <section id="erd">
+      <h2><span class="idx">01</span> Entity Relationship Diagram</h2>
+      <p class="desc">
+        Solid connectors are enforced foreign keys read straight from the database catalog. Grouped loosely by
+        app of origin, left to right: identity → academic structure → admissions/students → assessment activity.
+      </p>
+
+      <div class="diagram-card">
+        <div class="diagram-toolbar">
+          <div class="label">itca_db · public schema</div>
+          <div class="legend">
+            <span><i style="background:var(--green)"></i>new this session</span>
+            <span><i style="background:var(--text-faint)"></i>existing</span>
+          </div>
+        </div>
+        <div class="diagram-body">
+<pre class="mermaid">
+erDiagram
+    SYSTEM_USERS {
+        bigint id PK
+        varchar email UK
+        varchar role
+        bigint campus_id FK
+        boolean is_active
+    }
+    CAMPUSES {
+        bigint id PK
+        varchar campus_name
+        varchar campus_code UK
+        boolean is_active
+    }
+    PROGRAMS {
+        bigint id PK
+        varchar program_name
+        varchar program_code UK
+        boolean is_active
+    }
+    MODULES {
+        bigint id PK
+        varchar module_name
+        varchar module_code UK
+        boolean is_local_assessment
+        boolean is_international_assessment
+        varchar certifying_body
+    }
+    PROGRAM_MODULES {
+        bigint id PK
+        bigint program_id FK
+        bigint module_id FK
+        boolean is_default
+    }
+    CLASSES {
+        bigint id PK
+        bigint program_id FK
+        bigint campus_id FK
+        bigint trainer_id FK
+        int academic_year
+        varchar cohort
+        int capacity
+    }
+    ENROLLMENTS {
+        bigint id PK
+        bigint student_id FK
+        bigint class_id FK
+        date start_date
+        varchar status
+    }
+    ATTENDANCE_RECORDS {
+        bigint id PK
+        bigint student_id FK
+        bigint class_group_id FK
+        bigint recorded_by_id FK
+        date date
+        varchar status
+        time time_in
+    }
+    APPLICANT_DETAILS {
+        bigint id PK
+        varchar first_name
+        varchar last_name
+        varchar id_number
+        bigint campus_id FK
+        bigint program_id FK
+        varchar application_status
+        varchar application_reference UK
+    }
+    STUDENT_CONTACT {
+        bigint id PK
+        bigint applicant_id FK
+        varchar first_name
+        varchar relationship
+    }
+    STUDENT_DETAILS {
+        bigint id PK
+        bigint applicant_id FK
+        bigint trainer_id FK
+        varchar student_email UK
+        varchar student_id_code UK
+    }
+    ALUMNI {
+        bigint id PK
+        bigint student_id FK
+        bigint program_id FK
+        bigint campus_id FK
+        date graduation_date
+    }
+    STUDENT_MODULES {
+        bigint id PK
+        bigint student_id FK
+        bigint module_id FK
+        varchar status
+        varchar assignment_type
+    }
+    LOCAL_ASSESSMENTS {
+        bigint id PK
+        bigint student_module_id FK
+        bigint trainer_id FK
+        varchar assessment_type
+        int mark
+        boolean is_remediation
+        int remediation_mark
+        boolean competent
+    }
+    INT_EXAM_ATTEMPTS {
+        bigint id PK
+        bigint student_module_id FK
+        int attempt_number
+        date exam_date
+        boolean exam_result
+        int score
+    }
+    EXAM_BOOKINGS {
+        bigint id PK
+        bigint student_module_id FK
+        bigint attempt_id FK
+        bigint booked_by_id FK
+        date exam_date
+        time exam_time
+        varchar status
+    }
+    ACCESS_KEYS {
+        bigint id PK
+        bigint student_module_id FK
+        varchar key_type
+        varchar key_value
+    }
+    LEARNING_PLATFORM_CREDENTIALS {
+        bigint id PK
+        bigint student_id FK
+        varchar platform_name
+        varchar username
+        varchar password
+    }
+    PROMOTIONS {
+        bigint id PK
+        bigint current_enrollment_id FK
+        bigint target_class_id FK
+        bigint requested_by_id FK
+        bigint reviewed_by_id FK
+        varchar status
+    }
+
+    CAMPUSES ||--o{ SYSTEM_USERS : "staff"
+    CAMPUSES ||--o{ APPLICANT_DETAILS : "campus"
+    CAMPUSES ||--o{ CLASSES : "campus"
+    CAMPUSES ||--o{ ALUMNI : "campus"
+    PROGRAMS ||--o{ APPLICANT_DETAILS : "program"
+    PROGRAMS ||--o{ CLASSES : "program"
+    PROGRAMS ||--o{ ALUMNI : "program"
+    PROGRAMS ||--o{ PROGRAM_MODULES : "program"
+    MODULES ||--o{ PROGRAM_MODULES : "module"
+    MODULES ||--o{ STUDENT_MODULES : "module"
+    SYSTEM_USERS ||--o{ CLASSES : "trainer"
+    SYSTEM_USERS ||--o{ STUDENT_DETAILS : "trainer"
+    SYSTEM_USERS ||--o{ LOCAL_ASSESSMENTS : "trainer"
+    SYSTEM_USERS ||--o{ ATTENDANCE_RECORDS : "recorded_by"
+    SYSTEM_USERS ||--o{ EXAM_BOOKINGS : "booked_by"
+    SYSTEM_USERS ||--o{ PROMOTIONS : "requested_by"
+    SYSTEM_USERS ||--o{ PROMOTIONS : "reviewed_by"
+    CLASSES ||--o{ ENROLLMENTS : "class"
+    CLASSES ||--o{ ATTENDANCE_RECORDS : "class_group"
+    CLASSES ||--o{ PROMOTIONS : "target_class"
+    APPLICANT_DETAILS ||--o{ STUDENT_CONTACT : "next of kin"
+    APPLICANT_DETAILS ||--|| STUDENT_DETAILS : "approved into"
+    STUDENT_DETAILS ||--o{ ENROLLMENTS : "enrolls in"
+    STUDENT_DETAILS ||--o{ ATTENDANCE_RECORDS : "attends"
+    STUDENT_DETAILS ||--o{ ALUMNI : "graduates to"
+    STUDENT_DETAILS ||--o{ STUDENT_MODULES : "studies"
+    STUDENT_DETAILS ||--o{ LEARNING_PLATFORM_CREDENTIALS : "holds"
+    STUDENT_MODULES ||--o{ LOCAL_ASSESSMENTS : "graded by"
+    STUDENT_MODULES ||--o{ INT_EXAM_ATTEMPTS : "sat as"
+    STUDENT_MODULES ||--o{ EXAM_BOOKINGS : "scheduled as"
+    STUDENT_MODULES ||--o{ ACCESS_KEYS : "unlocks"
+    INT_EXAM_ATTEMPTS |o--o{ EXAM_BOOKINGS : "resulted from"
+    ENROLLMENTS ||--o{ PROMOTIONS : "promoted from"
+</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ accounts ══ -->
+    <section id="accounts-group">
+      <h2><span class="idx">02</span> accounts</h2>
+      <p class="desc">Identity and staff role assignment. Authentication itself lives outside this table (Microsoft Entra ID) — <code class="mono" style="font-size:12.5px">password</code> is unusable for every non-superuser row.</p>
+      <div class="table-grid">
+
+        <div class="tcard" id="system_users">
+          <div class="tcard-head">
+            <div class="names"><span class="model">SystemUser</span><span class="table">system_users</span></div>
+            <span class="rowcount">13 cols</span>
+          </div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">email</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span></td></tr>
+            <tr><td class="col">entra_id</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">first_name / last_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">role</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">campus_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→campuses</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">is_active / is_staff / is_superuser</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">date_joined / last_login</td><td class="type">timestamptz</td><td class="flags"></td></tr>
+            <tr><td class="col">password</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">role ∈ {exec_admin, test_admin, trainer, data_capturer}</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ academics ══ -->
+    <section id="academics-group">
+      <h2><span class="idx">03</span> academics</h2>
+      <p class="desc">Campus/program/module structure, cohorts, and enrolment. <code class="mono" style="font-size:12.5px">attendance_records</code> is new this session.</p>
+      <div class="table-grid">
+
+        <div class="tcard" id="campuses">
+          <div class="tcard-head"><div class="names"><span class="model">Campus</span><span class="table">campuses</span></div><span class="rowcount">5 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">campus_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">campus_code</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span></td></tr>
+            <tr><td class="col">is_active</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">created_at</td><td class="type">timestamptz</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">Seeded: DBN, PMB (+1 more currently in dev data)</div>
+        </div>
+
+        <div class="tcard" id="programs">
+          <div class="tcard-head"><div class="names"><span class="model">Program</span><span class="table">programs</span></div><span class="rowcount">5 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">program_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">program_code</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span></td></tr>
+            <tr><td class="col">is_active</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">created_at</td><td class="type">timestamptz</td><td class="flags"></td></tr>
+          </table>
+        </div>
+
+        <div class="tcard" id="modules">
+          <div class="tcard-head"><div class="names"><span class="model">Module</span><span class="table">modules</span></div><span class="rowcount">8 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">module_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">module_code</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span></td></tr>
+            <tr><td class="col">is_local_assessment</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">is_international_assessment</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">certifying_body</td><td class="type">varchar</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">is_active</td><td class="type">boolean</td><td class="flags"></td></tr>
+          </table>
+        </div>
+
+        <div class="tcard" id="program_modules">
+          <div class="tcard-head"><div class="names"><span class="model">ProgramModule</span><span class="table">program_modules</span></div><span class="rowcount">5 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">program_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→programs</span></td></tr>
+            <tr><td class="col">module_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→modules</span></td></tr>
+            <tr><td class="col">is_default</td><td class="type">boolean</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">Junction — unique(program_id, module_id)</div>
+        </div>
+
+        <div class="tcard" id="classes">
+          <div class="tcard-head"><div class="names"><span class="model">Class</span><span class="table">classes</span></div><span class="rowcount">9 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">program_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→programs</span></td></tr>
+            <tr><td class="col">campus_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→campuses</span></td></tr>
+            <tr><td class="col">trainer_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">academic_year</td><td class="type">int</td><td class="flags"></td></tr>
+            <tr><td class="col">cohort</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">capacity</td><td class="type">int</td><td class="flags"></td></tr>
+            <tr><td class="col">is_active</td><td class="type">boolean</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">unique(program, campus, academic_year, cohort)</div>
+        </div>
+
+        <div class="tcard" id="enrollments">
+          <div class="tcard-head"><div class="names"><span class="model">Enrollment</span><span class="table">enrollments</span></div><span class="rowcount">7 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_details</span></td></tr>
+            <tr><td class="col">class_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→classes</span></td></tr>
+            <tr><td class="col">start_date / end_date</td><td class="type">date</td><td class="flags"></td></tr>
+            <tr><td class="col">status</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">status ∈ {Active, Completed, Withdrawn, Promoted}</div>
+        </div>
+
+        <div class="tcard" id="attendance_records" style="border-color:var(--green)">
+          <div class="tcard-head"><div class="names"><span class="model">AttendanceRecord <span class="tag tag-new">NEW</span></span><span class="table">attendance_records</span></div><span class="rowcount">10 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_details</span></td></tr>
+            <tr><td class="col">class_group_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→classes</span></td></tr>
+            <tr><td class="col">recorded_by_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">date</td><td class="type">date</td><td class="flags"></td></tr>
+            <tr><td class="col">status</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">time_in</td><td class="type">time</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">notes</td><td class="type">varchar</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+          </table>
+          <div class="tcard-foot">unique(student_id, date) · status ∈ {Present, Late, Absent} · powers the Trainer Portal register</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ admissions ══ -->
+    <section id="admissions-group">
+      <h2><span class="idx">04</span> admissions</h2>
+      <p class="desc">The applicant → student → alumni lifecycle.</p>
+      <div class="table-grid">
+
+        <div class="tcard" id="applicant_details">
+          <div class="tcard-head"><div class="names"><span class="model">Applicant</span><span class="table">applicant_details</span></div><span class="rowcount">28 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">first_name / last_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">id_number</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">campus_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→campuses</span></td></tr>
+            <tr><td class="col">program_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→programs</span></td></tr>
+            <tr><td class="col">application_status</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">application_reference</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">popi_consent</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">+ 19 more</td><td class="type">contact / demographic fields</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">application_reference auto-generated: ITCA-YYYY-XXXXX</div>
+        </div>
+
+        <div class="tcard" id="student_contact">
+          <div class="tcard-head"><div class="names"><span class="model">StudentContact</span><span class="table">student_contact</span></div><span class="rowcount">8 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">applicant_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→applicant_details</span></td></tr>
+            <tr><td class="col">first_name / last_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">relationship</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">cell</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">work_phone / email</td><td class="type">varchar</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+          </table>
+          <div class="tcard-foot">Next of kin</div>
+        </div>
+
+        <div class="tcard" id="student_details">
+          <div class="tcard-head"><div class="names"><span class="model">Student</span><span class="table">student_details</span></div><span class="rowcount">6 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">applicant_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→applicant_details</span><span class="tag tag-uk">1:1</span></td></tr>
+            <tr><td class="col">trainer_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">student_email</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">student_id_code</td><td class="type">varchar</td><td class="flags"><span class="tag tag-uk">UK</span><span class="tag tag-null">null</span></td></tr>
+          </table>
+          <div class="tcard-foot">student_id_code: {CAMPUS}-{YYYY}-{SEQ}, e.g. DBN-2026-001</div>
+        </div>
+
+        <div class="tcard" id="alumni">
+          <div class="tcard-head"><div class="names"><span class="model">Alumni</span><span class="table">alumni</span></div><span class="rowcount">5 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_details</span></td></tr>
+            <tr><td class="col">program_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→programs</span></td></tr>
+            <tr><td class="col">campus_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→campuses</span></td></tr>
+            <tr><td class="col">graduation_date</td><td class="type">date</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">Table exists; graduate → Alumni workflow is still outstanding work (CLAUDE.md §6)</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ assessments ══ -->
+    <section id="assessments-group">
+      <h2><span class="idx">05</span> assessments</h2>
+      <p class="desc">NQF5 grading, international exams, and the two tables added this session — <code class="mono" style="font-size:12.5px">exam_bookings</code> schedules a sitting ahead of the result being recorded.</p>
+      <div class="table-grid">
+
+        <div class="tcard" id="student_modules">
+          <div class="tcard-head"><div class="names"><span class="model">StudentModule</span><span class="table">student_modules</span></div><span class="rowcount">7 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_details</span></td></tr>
+            <tr><td class="col">module_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→modules</span></td></tr>
+            <tr><td class="col">status</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">assignment_type</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">unique(student, module) · assignment_type ∈ {Default, Elective}</div>
+        </div>
+
+        <div class="tcard" id="local_assessments">
+          <div class="tcard-head"><div class="names"><span class="model">LocalAssessment</span><span class="table">local_assessments</span></div><span class="rowcount">10 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_module_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_modules</span></td></tr>
+            <tr><td class="col">trainer_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">assessment_type</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">mark / remediation_mark</td><td class="type">int</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">is_remediation</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">competent</td><td class="type">boolean</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+          </table>
+          <div class="tcard-foot">unique(student_module, assessment_type) · PFA01/PFA02/PSA auto-created per module</div>
+        </div>
+
+        <div class="tcard" id="int_exam_attempts">
+          <div class="tcard-head"><div class="names"><span class="model">InternationalExamAttempt</span><span class="table">int_exam_attempts</span></div><span class="rowcount">7 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_module_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_modules</span></td></tr>
+            <tr><td class="col">attempt_number</td><td class="type">int</td><td class="flags"></td></tr>
+            <tr><td class="col">exam_date</td><td class="type">date</td><td class="flags"></td></tr>
+            <tr><td class="col">exam_result</td><td class="type">boolean</td><td class="flags"></td></tr>
+            <tr><td class="col">score</td><td class="type">int</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">unique(student_module, attempt_number) · score /1000, 700 = pass</div>
+        </div>
+
+        <div class="tcard" id="exam_bookings" style="border-color:var(--green)">
+          <div class="tcard-head"><div class="names"><span class="model">ExamBooking <span class="tag tag-new">NEW</span></span><span class="table">exam_bookings</span></div><span class="rowcount">8 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_module_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_modules</span></td></tr>
+            <tr><td class="col">attempt_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→int_exam_attempts</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">booked_by_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">exam_date</td><td class="type">date</td><td class="flags"></td></tr>
+            <tr><td class="col">exam_time</td><td class="type">time</td><td class="flags"><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">status</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">status ∈ {Scheduled, Completed, Cancelled} · links forward to the attempt once sat · powers Test Admin's Bookings calendar</div>
+        </div>
+
+        <div class="tcard" id="access_keys">
+          <div class="tcard-head"><div class="names"><span class="model">AccessKey</span><span class="table">access_keys</span></div><span class="rowcount">5 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_module_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_modules</span></td></tr>
+            <tr><td class="col">key_type</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">key_value</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">Excluded from all exports (SRD req. 12)</div>
+        </div>
+
+        <div class="tcard" id="learning_platform_credentials">
+          <div class="tcard-head"><div class="names"><span class="model">LearningPlatformCredential</span><span class="table">learning_platform_credentials</span></div><span class="rowcount">7 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">student_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→student_details</span></td></tr>
+            <tr><td class="col">platform_name</td><td class="type">varchar</td><td class="flags"></td></tr>
+            <tr><td class="col">username / password</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">Stored plain text — flagged for encryption before go-live · excluded from exports</div>
+        </div>
+
+        <div class="tcard" id="promotions">
+          <div class="tcard-head"><div class="names"><span class="model">Promotion</span><span class="table">promotions</span></div><span class="rowcount">9 cols</span></div>
+          <table>
+            <tr><td class="col">id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-pk">PK</span></td></tr>
+            <tr><td class="col">current_enrollment_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→enrollments</span></td></tr>
+            <tr><td class="col">target_class_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→classes</span></td></tr>
+            <tr><td class="col">requested_by_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span></td></tr>
+            <tr><td class="col">reviewed_by_id</td><td class="type">bigint</td><td class="flags"><span class="tag tag-fk">FK→system_users</span><span class="tag tag-null">null</span></td></tr>
+            <tr><td class="col">status</td><td class="type">varchar</td><td class="flags"></td></tr>
+          </table>
+          <div class="tcard-foot">status ∈ {Pending, Approved, Rejected}</div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <span>Introspected live from <span class="mono">itca_db</span> via <span class="mono">information_schema</span> — not hand-transcribed from models.py</span>
+  <span>17 migrations applied · 0 pending</span>
+</footer>

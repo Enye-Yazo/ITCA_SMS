@@ -1,0 +1,70 @@
+<!-- templates/dashboard/reports.html -->
+{% extends 'base.html' %}
+
+{% block title %}Reports — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<div class="surface-hero px-8 pt-8 pb-7">
+  <div>
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Analytics</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1">Reports</h1>
+    <p class="text-white/55 text-sm">Assessment and enrolment analytics across both campuses</p>
+  </div>
+</div>
+
+<div class="px-8">
+  <div class="grid grid-cols-3 gap-3.5 pt-5">
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">Total Students</div>
+      <div class="text-3xl font-extrabold">{{ total_students }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">NQF5 Pass Rate</div>
+      <div class="text-3xl font-extrabold">{{ overall_pass_rate }}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-xs uppercase tracking-wide text-itca-muted">Cert Pass Rate</div>
+      <div class="text-3xl font-extrabold">{{ cert_pass_rate }}%</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 py-6">
+    <div class="surface p-6">
+      <h2 class="text-base font-bold mb-5">NQF5 Results by Program</h2>
+      <div class="flex flex-col gap-3.5">
+        {% for row in program_rows %}
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-itca-muted w-32 text-right shrink-0">{{ row.program.program_name }}</span>
+          <div class="flex-1 h-7 rounded-md bg-itca-surface overflow-hidden">
+            <div class="h-full rounded-md flex items-center justify-end px-2.5" style="width:{{ row.pass_rate }}%;background:linear-gradient(90deg,#2563eb,#0ea5e9)">
+              <span class="text-xs font-bold text-white">{{ row.pass_rate }}%</span>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-sm text-itca-muted">No program data yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="surface p-6">
+      <h2 class="text-base font-bold mb-5">Certification Pass Rate by Module</h2>
+      <div class="flex flex-col gap-3.5">
+        {% for row in module_rows %}
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-itca-muted w-20 text-right shrink-0">{{ row.student_module__module__module_code }}</span>
+          <div class="flex-1 h-7 rounded-md bg-itca-surface overflow-hidden flex">
+            <div class="h-full bg-itca-green" style="width:{{ row.pass_pct }}%"></div>
+          </div>
+          <span class="text-xs font-semibold text-itca-muted w-9">{{ row.pass_pct }}%</span>
+        </div>
+        {% empty %}
+        <p class="text-sm text-itca-muted">No exam attempts recorded yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

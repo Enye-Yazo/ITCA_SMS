@@ -3,19 +3,29 @@
 {% load static %}
 
 {% block title %}Grading — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
 
 {% block content %}
 
-<!-- ── Page Header ───────────────────────────────────────────────────────── -->
-<div class="mb-8">
-  <h1 class="text-2xl font-bold">Grading</h1>
-  <p class="text-itca-navy/50 text-sm mt-1">
-    Local NQF5 assessments for your students. Click a row to enter marks.
-  </p>
+<!-- ── Hero + Tabs ───────────────────────────────────────────────────────── -->
+<div class="surface-hero px-8 pt-8 pb-0">
+  <div class="relative z-10">
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Trainer Portal</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1.5">{{ request.user.full_name }}</h1>
+    <p class="text-white/55 text-sm mb-6">Click a row to enter marks. NQF5 assessments for your own students only.</p>
+
+    <div class="flex gap-0 border-b border-white/10">
+      <a href="{% url 'assessments:grading_index' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">NQF5 Assessments</a>
+      <a href="{% url 'assessments:trainer_intcert' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Int. Certifications</a>
+      <a href="{% url 'academics:attendance' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Attendance</a>
+    </div>
+  </div>
 </div>
 
+<div class="px-8 py-6">
+
 <!-- ── Grading Table ─────────────────────────────────────────────────────── -->
-<div class="rounded-2xl p-6 surface">
+<div class="surface p-6">
   <div class="overflow-x-auto">
     <table class="dash-table w-full" id="gradingTable">
       <thead>
@@ -86,6 +96,8 @@
       </tbody>
     </table>
   </div>
+</div>
+
 </div>
 
 <!-- ── Grading Modal ─────────────────────────────────────────────────────── -->

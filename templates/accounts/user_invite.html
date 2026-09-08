@@ -1,0 +1,28 @@
+<!-- templates/accounts/user_invite.html -->
+{% extends 'base.html' %}
+
+{% block title %}Invite User — ITCA Portal{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+  <h1 class="text-2xl font-extrabold mb-1">Invite User</h1>
+  <p class="text-itca-muted text-sm mb-6">
+    Creates the account ahead of time — the email must match their Microsoft account exactly.
+  </p>
+
+  <form method="post" class="surface p-6 flex flex-col gap-4">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label class="text-sm font-semibold block mb-1">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<p class="text-itca-red-dark text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn-primary">Invite User</button>
+      <a href="{% url 'accounts:user_list' %}" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

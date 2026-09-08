@@ -1,0 +1,58 @@
+<!-- templates/assessments/trainer_intcert.html -->
+{% extends 'base.html' %}
+
+{% block title %}Int. Certifications — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<div class="surface-hero px-8 pt-8 pb-0">
+  <div class="relative z-10">
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Trainer Portal</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1.5">{{ request.user.full_name }}</h1>
+    <p class="text-white/55 text-sm mb-6">Vendor exam results for your students — read-only.</p>
+
+    <div class="flex gap-0 border-b border-white/10">
+      <a href="{% url 'assessments:grading_index' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">NQF5 Assessments</a>
+      <a href="{% url 'assessments:trainer_intcert' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">Int. Certifications</a>
+      <a href="{% url 'academics:attendance' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Attendance</a>
+    </div>
+  </div>
+</div>
+
+<div class="px-8 py-6">
+  <div class="surface overflow-hidden">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th class="pl-5">Student</th>
+          <th>Certification</th>
+          <th>Exam Date</th>
+          <th class="text-center">Score</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in attempts %}
+        <tr>
+          <td class="pl-5 font-semibold">{{ a.student_module.student.full_name }}</td>
+          <td>{{ a.student_module.module.module_code }}</td>
+          <td>{{ a.exam_date }}</td>
+          <td class="text-center">{{ a.score }} <span class="text-itca-muted text-xs">/ 1000</span></td>
+          <td class="text-center">
+            <span class="badge {% if a.exam_result %}badge-green{% else %}badge-red{% endif %}">
+              {% if a.exam_result %}Passed{% else %}Failed{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-itca-muted py-8">No exam results recorded for your students yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="p-4 border-t border-itca-border">
+      <span class="text-xs text-itca-muted">Exam results are entered by Test Administration. Trainers have read-only access.</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

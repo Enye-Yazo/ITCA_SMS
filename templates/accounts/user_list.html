@@ -6,11 +6,14 @@
 {% block content %}
 
 <!-- ── Header ────────────────────────────────────────────────────────────── -->
-<div class="mb-6">
-  <h1 class="text-2xl font-bold">Users</h1>
-  <p class="text-itca-navy/40 text-sm mt-1">
-    
-  </p>
+<div class="mb-6 flex items-end justify-between">
+  <div>
+    <h1 class="text-2xl font-bold">Users</h1>
+    <p class="text-itca-navy/40 text-sm mt-1">
+      Manage staff accounts, roles and access permissions
+    </p>
+  </div>
+  <a href="{% url 'accounts:user_invite' %}" class="btn-primary">Invite User</a>
 </div>
 
 <!-- ── Messages ──────────────────────────────────────────────────────────── -->
@@ -38,19 +41,25 @@
           <th>Role</th>
           <th>Campus</th>
           <th>Active</th>
-          <th class="text-right">Save</th>
+          <th class="text-right">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for row in user_rows %}
         {% if row.user.pk != request.user.pk %}
-        <!-- A <form> can't legally wrap <td> siblings inside a <tr>, so the
-             form lives outside the table and each field below points at it
-             via the HTML5 form="..." attribute instead. -->
+        <!-- A <form> can't legally wrap <td> siblings inside a <tr>, so both
+             forms live outside the table and their fields/buttons point at
+             them via the HTML5 form="..." attribute instead. -->
         <form id="user-form-{{ row.user.pk }}" method="post"
               action="{% url 'accounts:user_update' row.user.pk %}">
           {% csrf_token %}
         </form>
+        {% if not row.user.is_superuser %}
+        <form id="user-delete-form-{{ row.user.pk }}" method="post"
+              action="{% url 'accounts:user_delete' row.user.pk %}">
+          {% csrf_token %}
+        </form>
+        {% endif %}
         {% endif %}
         <tr>
           {% if row.user.pk == request.user.pk %}
@@ -77,12 +86,20 @@
               <span class="text-xs text-itca-navy/50">Active</span>
             </label>
           </td>
-          <td class="text-right">
+          <td class="text-right whitespace-nowrap">
             <button type="submit" form="user-form-{{ row.user.pk }}"
                     class="text-xs px-3 py-1 rounded-full font-medium"
                     style="background: var(--color-itca-blue-light); color: var(--color-itca-blue-dark);">
               Save
             </button>
+            {% if not row.user.is_superuser %}
+            <button type="submit" form="user-delete-form-{{ row.user.pk }}"
+                    onclick="return confirm('Delete {{ row.user.full_name|escapejs }}? This can\'t be undone.')"
+                    class="text-xs px-3 py-1 rounded-full font-medium ml-1"
+                    style="background: var(--color-itca-red-light); color: var(--color-itca-red-dark);">
+              Delete
+            </button>
+            {% endif %}
           </td>
           {% endif %}
         </tr>

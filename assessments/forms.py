@@ -4,7 +4,7 @@ from django import forms
 
 from academics.models import Module
 from admissions.models import Student
-from .models import InternationalExamAttempt, Promotion
+from .models import InternationalExamAttempt
 
 
 class InternationalExamAttemptForm(forms.ModelForm):
@@ -72,21 +72,26 @@ class InternationalExamAttemptForm(forms.ModelForm):
 
     def clean_exam_result(self):
         return self.cleaned_data['exam_result'] == 'true'
-
-
-class PromotionRequestForm(forms.ModelForm):
-    """
-    Requested by a Trainer for one of their own students' active
-    enrollments. target_class is restricted, in the view, to Returning
-    classes in the same program and campus as the current enrollment.
-    """
-    class Meta:
-        model = Promotion
-        fields = ['target_class', 'notes']
-        labels = {
-            'target_class': 'Promote to class',
-            'notes': 'Notes (optional)',
-        }
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 3}),
         }
+
+
+class ExamBookingForm(forms.ModelForm):
+    """Test Admin schedules an exam sitting ahead of time."""
+    student = forms.ModelChoiceField(
+        queryset=Student.objects.select_related('applicant').order_by(
+            'applicant__first_name', 'applicant__last_name'
+        ),
+    )
+
+    module = forms.ModelChoiceField(
+        queryset=Module.objects.filter(
+            is_international_assessment=True, is_active=True
+        ).order_by('module_code'),
+    )
+
+    class Meta:
+        from .models import ExamBooking
+        model = ExamBooking
+        fields = ['exam_date', 'exam_time']

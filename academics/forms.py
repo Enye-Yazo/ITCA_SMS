@@ -1,7 +1,7 @@
 # academics/forms.py
 
 from django import forms
-from .models import Campus, Program, Module, ProgramModule, Class
+from .models import Campus, Program, Module, ProgramModule, Class, AttendanceRecord
 
 
 class CampusForm(forms.ModelForm):
@@ -68,6 +68,14 @@ class ClassForm(forms.ModelForm):
             role=UserRole.TRAINER,
             is_active=True
         )
+        # Default to the current year on a brand-new class — application
+        # approval only ever looks for a New-cohort class in the current
+        # academic year (admissions.views.application_approve), so a
+        # blank/placeholder-only field made it easy to create a class
+        # for the wrong year and have approval silently keep failing.
+        if not self.instance.pk:
+            from django.utils import timezone
+            self.fields['academic_year'].initial = timezone.now().year
 
 
 class ProgramModuleForm(forms.ModelForm):
@@ -77,3 +85,8 @@ class ProgramModuleForm(forms.ModelForm):
         labels = {
             'is_default': 'Auto-assign to new students in this program',
         }
+
+class AttendanceForm(forms.ModelForm):
+    class Meta:
+        model = AttendanceRecord
+        fields = ['status', 'time_in', 'notes']

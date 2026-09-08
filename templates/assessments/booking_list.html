@@ -1,0 +1,134 @@
+<!-- templates/assessments/booking_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Exam Bookings — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<div class="surface-hero px-8 pt-8 pb-7">
+  <div class="flex items-end justify-between flex-wrap gap-4 relative">
+    <div>
+      <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Test Administration</div>
+      <h1 class="text-3xl font-extrabold text-white">Exam Bookings</h1>
+    </div>
+    <button onclick="document.getElementById('booking-modal').classList.remove('hidden')" class="btn-primary !bg-white !text-itca-navy">
+      + Book Exam
+    </button>
+  </div>
+</div>
+
+<div class="px-8 py-6">
+
+{% if messages %}
+{% for message in messages %}
+<div class="mb-4 rounded-lg p-3 text-sm {% if message.tags == 'error' %}bg-itca-red-light text-itca-red-dark{% else %}bg-itca-green-light text-itca-green-dark{% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="surface overflow-hidden mb-5">
+  <div class="flex items-center justify-between p-4 border-b border-itca-border">
+    <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn-secondary !px-2.5 !py-2">‹</a>
+    <span class="font-bold text-sm">{{ month_label }}</span>
+    <a href="?year={{ next_year }}&month={{ next_month }}" class="btn-secondary !px-2.5 !py-2">›</a>
+  </div>
+  <div class="grid grid-cols-7">
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Mon</div>
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Tue</div>
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Wed</div>
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Thu</div>
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Fri</div>
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Sat</div>
+    <div class="p-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-itca-muted border-b border-itca-border">Sun</div>
+
+    {% for week in weeks %}
+    {% for cell in week %}
+    <div class="p-2 border-b border-r border-itca-border min-h-[90px]">
+      {% if cell.day %}
+      <span class="text-xs font-semibold text-itca-navy">{{ cell.day }}</span>
+      {% for b in cell.bookings %}
+      <div class="mt-1.5 p-1.5 rounded-md bg-itca-blue-light text-itca-blue-dark leading-tight">
+        <div class="font-bold text-[10px]">{{ b.student_module.module.module_code }}</div>
+        <div class="text-[10px]">{{ b.student_module.student.full_name }}{% if b.exam_time %} · {{ b.exam_time|time:"H:i" }}{% endif %}</div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="surface p-5 mb-5">
+  <h3 class="text-sm font-bold mb-3.5">Upcoming</h3>
+  <div class="flex flex-col gap-2.5">
+    {% for b in upcoming %}
+    <div class="flex items-center gap-3.5 p-2.5 bg-itca-surface rounded-lg">
+      <div class="flex flex-col items-center justify-center rounded-lg bg-itca-blue-light text-itca-blue-dark font-bold text-[11px] shrink-0" style="width:42px;height:42px">
+        {{ b.exam_date|date:"d" }}<span class="font-medium" style="font-size:9px">{{ b.exam_date|date:"M"|upper }}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold">{{ b.student_module.module.module_code }} — {{ b.student_module.student.full_name }}</div>
+        <div class="text-xs text-itca-muted mt-0.5">{{ b.exam_time|default:"—" }} · {{ b.student_module.student.program.program_name }} · {{ b.student_module.student.campus.campus_code }} Campus</div>
+      </div>
+      <span class="badge badge-amber">{{ b.status }}</span>
+    </div>
+    {% empty %}
+    <p class="text-sm text-itca-muted">No exams currently scheduled.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="surface overflow-hidden">
+  <table class="dash-table">
+    <thead>
+      <tr>
+        <th class="pl-5">Student</th>
+        <th>Module</th>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bookings %}
+      <tr>
+        <td class="pl-5 font-semibold">{{ b.student_module.student.full_name }}</td>
+        <td>{{ b.student_module.module.module_code }}</td>
+        <td>{{ b.exam_date }}</td>
+        <td>{{ b.exam_time|default:"—" }}</td>
+        <td>
+          <span class="badge {% if b.status == 'Scheduled' %}badge-amber{% elif b.status == 'Completed' %}badge-green{% else %}badge-slate{% endif %}">{{ b.status }}</span>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-itca-muted py-8">No bookings yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+</div>
+
+<!-- ── Book Exam Modal ───────────────────────────────────────────────────── -->
+<div id="booking-modal" class="hidden fixed inset-0 modal-scrim flex items-center justify-center z-50 p-4">
+  <div class="surface w-full max-w-md p-6">
+    <h3 class="text-lg font-bold mb-4">Book Exam</h3>
+    <form method="post" class="flex flex-col gap-3.5">
+      {% csrf_token %}
+      {% for field in form %}
+      <div>
+        <label class="text-sm font-semibold block mb-1">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<p class="text-itca-red-dark text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="btn-primary">Book Exam</button>
+        <button type="button" onclick="document.getElementById('booking-modal').classList.add('hidden')" class="btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

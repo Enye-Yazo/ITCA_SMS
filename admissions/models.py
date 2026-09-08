@@ -163,6 +163,17 @@ class Applicant(models.Model):
         help_text="Date the status was last changed"
     )
 
+    # Set once, at creation, by whichever entry point a Data Capturer used
+    # (application_new vs onboard_new) — distinguishes an application that
+    # still needs an Exec Admin admission decision from an already-real
+    # student whose historical record is just being captured into the
+    # system, and whose review step (5) offers "assign to class" instead
+    # of "submit for review" as a result.
+    is_historical_onboarding = models.BooleanField(
+        default=False,
+        help_text="True for an existing student being backfilled into the system, rather than a new applicant awaiting an admission decision"
+    )
+
     # POPI Act consent — does not stop application
     popi_consent = models.BooleanField(
         default=False,
@@ -323,6 +334,45 @@ class Student(models.Model):
         """A student is deemed Competent once their formative average reaches 94%."""
         average = self.formative_average
         return average is not None and average >= 94
+
+    @property
+    def all_nqf5_passed(self):
+        """
+        True once every local NQF5 assessment the student has (both
+        formatives ≥95%, including a remediation mark where one was
+        used, and the summative marked Competent) is passed, across
+        every module they're assigned. Used to trigger automatic
+        promotion — this is a stricter, all-or-nothing check than
+        `is_competent`'s formative-average threshold, and requires at
+        least one module with local assessments to be assigned so an
+        untouched student can never read as "all passed".
+        """
+        from assessments.models import LocalAssessment, StudentModule
+
+        student_modules = StudentModule.objects.filter(
+            student=self, module__is_local_assessment=True
+        ).prefetch_related('local_assessments')
+
+        if not student_modules.exists():
+            return False
+
+        for student_module in student_modules:
+            by_type = {
+                a.assessment_type: a
+                for a in student_module.local_assessments.all()
+            }
+
+            for key in (LocalAssessment.AssessmentType.FORMATIVE_1,
+                        LocalAssessment.AssessmentType.FORMATIVE_2):
+                assessment = by_type.get(key)
+                if assessment is None or assessment.effective_mark is None or assessment.effective_mark < 95:
+                    return False
+
+            summative = by_type.get(LocalAssessment.AssessmentType.SUMMATIVE)
+            if summative is None or summative.competent is not True:
+                return False
+
+        return True
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None

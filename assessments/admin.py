@@ -4,7 +4,7 @@ from django.contrib import admin
 from .models import (
     StudentModule, LocalAssessment,
     InternationalExamAttempt, AccessKey,
-    LearningPlatformCredential, Promotion
+    LearningPlatformCredential, ExamBooking
 )
 
 
@@ -39,10 +39,7 @@ class LearningPlatformCredentialAdmin(admin.ModelAdmin):
     search_fields = ['student__applicant__first_name', 'platform_name']
 
 
-@admin.register(Promotion)
-class PromotionAdmin(admin.ModelAdmin):
-    list_display = [
-        'current_enrollment', 'target_class',
-        'requested_by', 'status', 'request_date'
-    ]
+@admin.register(ExamBooking)
+class ExamBookingAdmin(admin.ModelAdmin):
+    list_display = ['student_module', 'exam_date', 'exam_time', 'status', 'booked_by']
     list_filter = ['status']

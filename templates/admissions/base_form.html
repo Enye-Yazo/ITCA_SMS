@@ -9,9 +9,17 @@
      class="text-sm text-itca-navy/40 hover:text-itca-navy/70 transition-colors">
     ← Applications
   </a>
-  <h1 class="text-2xl font-bold mt-2">New applicant profile</h1>
+  <h1 class="text-2xl font-bold mt-2">
+    {% if is_historical_onboarding %}Onboard existing student{% else %}New applicant profile{% endif %}
+  </h1>
   {% if applicant %}
   <p class="text-itca-navy/40 text-sm mt-1">{{ applicant.full_name }} · Draft</p>
+  {% endif %}
+  {% if is_historical_onboarding %}
+  <div class="mt-3 inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg"
+       style="background:var(--color-itca-amber-light);color:var(--color-itca-amber-dark)">
+    ⓘ Historical onboarding — this student already exists; step 5 assigns them straight to a class instead of submitting for review.
+  </div>
   {% endif %}
 </div>
 

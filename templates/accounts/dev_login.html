@@ -1,0 +1,70 @@
+<!-- templates/accounts/dev_login.html -->
+<!-- DEBUG-only — the view raises Http404 if settings.DEBUG is False,
+     so this template is unreachable in production regardless. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dev Quick Login — ITCA Portal</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/output.css' %}" />
+</head>
+<body class="min-h-screen bg-itca-bg p-8">
+
+  <div class="max-w-2xl mx-auto">
+    <div class="mb-6 p-3 rounded-lg text-sm font-semibold" style="background:var(--color-itca-amber-light);color:var(--color-itca-amber-dark)">
+      ⚠ Local development only — this page does not exist when DEBUG=False.
+    </div>
+
+    <h1 class="text-2xl font-extrabold mb-1">Dev Quick Login</h1>
+    <p class="text-itca-muted text-sm mb-6">
+      Skip the Microsoft sign-in and become any existing account instantly — for walking through a
+      multi-role scenario locally. Use <a href="{% url 'accounts:user_invite' %}" class="text-itca-blue">Invite User</a>
+      first to create a test account for each role you need.
+    </p>
+
+    <div class="surface overflow-hidden">
+      <table class="dash-table w-full">
+        <thead>
+          <tr>
+            <th class="pl-5">Name</th>
+            <th>Role</th>
+            <th>Campus</th>
+            <th class="text-right pr-5">Switch</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td class="pl-5">
+              <div class="flex items-center gap-2.5">
+                <div class="avatar" style="width:30px;height:30px;font-size:0.65rem">{{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}</div>
+                <div>
+                  <div class="font-semibold text-sm">{{ user.full_name }}</div>
+                  <div class="text-xs text-itca-muted">{{ user.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge {% if user.is_superuser %}badge-purple{% elif user.role == 'exec_admin' %}badge-blue{% elif user.role == 'trainer' %}badge-green{% elif user.role == 'test_admin' %}badge-amber{% else %}badge-slate{% endif %}">
+                {{ user.get_role_display }}{% if user.is_superuser %} (super){% endif %}
+              </span>
+            </td>
+            <td class="text-itca-muted text-sm">{{ user.campus|default:"All" }}</td>
+            <td class="text-right pr-5">
+              <form method="post" action="{% url 'accounts:dev_login_as' user.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-secondary !text-xs !py-1.5">Become this user</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-center text-itca-muted py-8">No users yet — invite one first.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</body>
+</html>

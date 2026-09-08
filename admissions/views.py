@@ -1,10 +1,13 @@
 # admissions/views.py
 
+from datetime import date as date_cls
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Q
 
 from .models import Applicant, StudentContact, Student, Alumni
 from .forms import (
@@ -13,7 +16,7 @@ from .forms import (
 )
 from academics.models import Campus, Program, Class, Enrollment
 from accounts.models import SystemUser, UserRole
-from assessments.models import Promotion, StudentModule, InternationalExamAttempt
+from assessments.models import StudentModule, InternationalExamAttempt
 
 
 # ─── Step configuration ───────────────────────────────────────────────────────
@@ -30,12 +33,20 @@ TOTAL_STEPS = len(STEPS)
 
 
 @login_required
-def application_step(request, step=1, applicant_id=None):
+def application_step(request, step=1, applicant_id=None, historical=False):
     """
     Multi-step application form.
     Handles both new applications (no applicant_id)
     and continuing a draft (applicant_id provided).
     Steps 1-4 are forms. Step 5 is a read-only review.
+
+    `historical=True` is only ever passed by the onboard_new URL — it
+    marks a brand-new Applicant (at step 1) as historical onboarding
+    rather than a fresh admission, which changes what step 5 offers
+    (assign directly to an existing class, vs submit for Exec Admin
+    review). Once the Applicant exists, the flag lives on the row
+    itself (is_historical_onboarding), so later steps read it from
+    there rather than needing it passed through the URL again.
     """
 
     # Only Data Capturers and Exec Admins can create applications
@@ -60,12 +71,26 @@ def application_step(request, step=1, applicant_id=None):
         # Load the next of kin for review
         contact = applicant.contacts.first()
 
+        available_classes = None
+        if applicant.is_historical_onboarding:
+            # Any active class in the applicant's program/campus — unlike
+            # a fresh admission, an existing student may belong to any
+            # cohort or academic year, not just the current year's New
+            # intake, so there's no single "the" active class to assume.
+            available_classes = Class.objects.filter(
+                program=applicant.program,
+                campus=applicant.campus,
+                is_active=True,
+            ).select_related('trainer').order_by('-academic_year', 'cohort')
+
         context = {
             'applicant': applicant,
             'contact': contact,
             'step': step,
             'total_steps': TOTAL_STEPS,
             'steps': STEPS,
+            'available_classes': available_classes,
+            'is_historical_onboarding': applicant.is_historical_onboarding,
         }
         return render(request, template, context)
 
@@ -80,9 +105,16 @@ def application_step(request, step=1, applicant_id=None):
 
         if form.is_valid():
             if step == 1:
-                # Save applicant as draft on step 1
+                # Save applicant as draft on step 1. `historical` only
+                # matters the first time this applicant is created —
+                # re-editing step 1 of an existing draft must not flip
+                # the flag back to False for a URL that no longer
+                # carries it.
+                is_new_applicant = applicant is None
                 applicant = form.save(commit=False)
                 applicant.application_status = Applicant.ApplicationStatus.PENDING
+                if is_new_applicant:
+                    applicant.is_historical_onboarding = historical
                 applicant.save()
 
             elif step == 4:
@@ -133,6 +165,11 @@ def application_step(request, step=1, applicant_id=None):
         'total_steps': TOTAL_STEPS,
         'steps': STEPS,
         'duplicate_applicant': duplicate_applicant,
+        # For a brand-new draft, is_historical_onboarding isn't set on the
+        # (not-yet-created) applicant yet — fall back to the URL's own
+        # `historical` kwarg so step 1's very first GET still shows the
+        # onboarding banner.
+        'is_historical_onboarding': applicant.is_historical_onboarding if applicant else historical,
     }
 
     return render(request, template, context)
@@ -202,11 +239,26 @@ def application_detail(request, applicant_id):
         ).count()
         remaining_capacity = active_class.capacity - enrolled_count
 
+    # Near-miss classes — any class that exists for this program/campus but
+    # doesn't qualify (wrong year, wrong cohort, or inactive) — so the "no
+    # active class" banner shows *why* an existing class doesn't count,
+    # rather than leaving an Exec Admin who's already created a class
+    # wondering why approval is still blocked.
+    near_miss_classes = None
+    if not active_class:
+        near_miss_classes = Class.objects.filter(
+            program=applicant.program, campus=applicant.campus
+        ).exclude(
+            academic_year=current_year, cohort=Class.CohortChoices.NEW, is_active=True
+        ).order_by('-academic_year')
+
     context = {
         'applicant': applicant,
         'contact': contact,
         'active_class': active_class,
         'remaining_capacity': remaining_capacity,
+        'near_miss_classes': near_miss_classes,
+        'current_year': current_year,
     }
 
     return render(request, 'admissions/application_detail.html', context)
@@ -246,6 +298,19 @@ def application_approve(request, applicant_id):
             f"No active class found for {applicant.program.program_name} "
             f"at {applicant.campus.campus_name} for {current_year}. "
             f"Create a class first before approving."
+        )
+        return redirect('admissions:application_detail', applicant_id=applicant_id)
+
+    # Block if the class has no trainer assigned, or its "trainer" isn't
+    # actually a Trainer-role account — a student's trainer comes
+    # directly from the class below, and there is no fallback trainer.
+    # An Exec Admin is never used as one, even implicitly, even if one
+    # was set on the class some other way (e.g. Django admin).
+    if not active_class.trainer_id or not active_class.trainer.is_trainer:
+        messages.error(
+            request,
+            f"{active_class} has no trainer assigned. "
+            f"Assign a trainer to this class in Settings before approving."
         )
         return redirect('admissions:application_detail', applicant_id=applicant_id)
 
@@ -365,6 +430,75 @@ def application_submit(request, applicant_id):
     return redirect('admissions:application_list')
 
 
+@login_required
+@transaction.atomic
+def onboard_confirm(request, applicant_id):
+    """
+    Finishes the historical-onboarding flow (see application_step's
+    `historical` kwarg): places an already-real, already-enrolled
+    student straight into the class the Data Capturer picked at step 5
+    — no separate Exec Admin admission decision, since there isn't one
+    to make for a student who already exists. Still enforces class
+    capacity, same as a normal approval.
+    """
+    if not (request.user.is_data_capturer or request.user.is_exec_admin):
+        messages.error(request, "You do not have permission to onboard students.")
+        return redirect('dashboard:index')
+
+    applicant = get_object_or_404(Applicant, pk=applicant_id)
+
+    if not applicant.is_historical_onboarding:
+        messages.error(request, "This application isn't a historical onboarding record.")
+        return redirect('admissions:application_step', applicant_id=applicant_id, step=5)
+
+    if hasattr(applicant, 'student_profile'):
+        messages.info(request, f"{applicant.full_name} has already been onboarded.")
+        return redirect('admissions:student_detail', student_id=applicant.student_profile.id)
+
+    if request.method != 'POST':
+        return redirect('admissions:application_step', applicant_id=applicant_id, step=5)
+
+    target_class = get_object_or_404(
+        Class, pk=request.POST.get('class_id'),
+        program=applicant.program, campus=applicant.campus,
+    )
+
+    enrolled_count = Enrollment.objects.filter(
+        class_group=target_class, status=Enrollment.EnrollmentStatus.ACTIVE
+    ).count()
+    if enrolled_count >= target_class.capacity:
+        messages.error(
+            request,
+            f"{target_class} is at capacity ({target_class.capacity} students). "
+            f"Increase capacity or pick a different class."
+        )
+        return redirect('admissions:application_step', applicant_id=applicant_id, step=5)
+
+    try:
+        start_date = date_cls.fromisoformat(request.POST.get('start_date', ''))
+    except ValueError:
+        start_date = timezone.now().date()
+
+    # Creating the Student triggers the same default-module-assignment
+    # signal a fresh approval does, so the student's local assessment
+    # slots exist immediately for the Trainer to backfill marks into.
+    student = Student.objects.create(applicant=applicant, trainer=target_class.trainer)
+    Enrollment.objects.create(
+        student=student, class_group=target_class,
+        start_date=start_date, status=Enrollment.EnrollmentStatus.ACTIVE,
+    )
+
+    applicant.application_status = Applicant.ApplicationStatus.APPROVED
+    applicant.status_date = timezone.now().date()
+    applicant.save()
+
+    messages.success(
+        request,
+        f"{applicant.full_name} onboarded as {student.student_id_code}."
+    )
+    return redirect('admissions:student_detail', student_id=student.id)
+
+
 # ─── Student List ─────────────────────────────────────────────────────────────
 def _filtered_student_rows(request):
     """
@@ -393,7 +527,11 @@ def _filtered_student_rows(request):
     if trainer_id != 'all' and request.user.is_exec_admin:
         students = students.filter(trainer_id=trainer_id)
     if search:
-        students = students.filter(student_id_code__icontains=search)
+        students = students.filter(
+            Q(student_id_code__icontains=search) |
+            Q(applicant__first_name__icontains=search) |
+            Q(applicant__last_name__icontains=search)
+        )
 
     # Cohort lives on the student's most recent enrollment, so filter in Python
     # once the queryset above has already narrowed things down.
@@ -525,7 +663,10 @@ def student_detail(request, student_id):
     """
     Full academic history for a single student:
     modules, local assessments, international exam attempts,
-    enrollments and promotion history.
+    and enrollment history (a Promoted row followed by a new Active
+    enrollment in the enrollment list below is that student's
+    promotion history — promotion is now automatic, not a separate
+    workflow, so there's nothing else to show).
     Exec Admin can view any student; a Trainer only their own.
     """
     if not (request.user.is_exec_admin or request.user.is_trainer):
@@ -546,9 +687,6 @@ def student_detail(request, student_id):
     ).filter(student=student)
 
     enrollments = student.enrollments.select_related('class_group').order_by('-start_date')
-    promotions = Promotion.objects.filter(
-        current_enrollment__student=student
-    ).select_related('target_class').order_by('-request_date')
 
     active_enrollment = enrollments.filter(status=Enrollment.EnrollmentStatus.ACTIVE).first()
 
@@ -556,7 +694,32 @@ def student_detail(request, student_id):
         'student': student,
         'student_modules': student_modules,
         'enrollments': enrollments,
-        'promotions': promotions,
         'active_enrollment': active_enrollment,
     }
     return render(request, 'admissions/student_detail.html', context)
+
+@login_required
+def student_set_email(request, student_id):
+    """
+    Sets a student's school-issued email — Exec Admin only, editable from
+    the Students detail page. student_email is unique, so a duplicate is
+    rejected with a clear message rather than a raw IntegrityError.
+    """
+    if not request.user.is_exec_admin:
+        messages.error(request, "Only Exec Admins can set a student's email address.")
+        return redirect('admissions:student_detail', student_id=student_id)
+
+    if request.method != 'POST':
+        return redirect('admissions:student_detail', student_id=student_id)
+
+    student = get_object_or_404(Student, pk=student_id)
+    email = request.POST.get('student_email', '').strip()
+
+    if email and Student.objects.filter(student_email__iexact=email).exclude(pk=student.pk).exists():
+        messages.error(request, f"{email} is already assigned to another student.")
+        return redirect('admissions:student_detail', student_id=student_id)
+
+    student.student_email = email or None
+    student.save(update_fields=['student_email'])
+    messages.success(request, "Student email updated.")
+    return redirect('admissions:student_detail', student_id=student_id)

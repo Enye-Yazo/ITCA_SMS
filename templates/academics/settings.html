@@ -2,16 +2,30 @@
 {% extends 'base.html' %}
 
 {% block title %}Settings — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
 
 {% block content %}
 
-<!-- ── Header ────────────────────────────────────────────────────────────── -->
-<div class="mb-6">
-  <h1 class="text-2xl font-bold">Settings</h1>
-  <p class="text-itca-navy/40 text-sm mt-1">
-    Manage campuses, programs, modules and classes
-  </p>
+<!-- ── Hero + Tabs ───────────────────────────────────────────────────────── -->
+<div class="surface-hero px-8 pt-8 pb-0">
+  <div class="relative z-10">
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Administration</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1.5">Settings</h1>
+    <p class="text-white/55 text-sm mb-6">Manage campuses, programs, modules and classes</p>
+
+    <div class="flex gap-0 border-b border-white/10">
+      {% for tab_id, tab_label in tabs %}
+      <button onclick="switchTab('{{ tab_id }}')"
+              id="tab-btn-{{ tab_id }}"
+              class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium transition-colors tab-btn border-b-2 border-transparent text-white/55">
+        {{ tab_label }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
 </div>
+
+<div class="px-8 py-6">
 
 <!-- ── Messages ──────────────────────────────────────────────────────────── -->
 {% if messages %}
@@ -26,17 +40,6 @@
 </div>
 {% endfor %}
 {% endif %}
-
-<!-- ── Tab Navigation ────────────────────────────────────────────────────── -->
-<div class="flex gap-1 mb-6 p-1 rounded-xl w-fit surface">
-  {% for tab_id, tab_label in tabs %}
-  <button onclick="switchTab('{{ tab_id }}')"
-          id="tab-btn-{{ tab_id }}"
-          class="px-4 py-2 rounded-lg text-sm font-medium transition-colors tab-btn">
-    {{ tab_label }}
-  </button>
-  {% endfor %}
-</div>
 
 <!-- ── Campuses Tab ───────────────────────────────────────────────────────── -->
 <div id="tab-campuses" class="tab-panel">
@@ -68,13 +71,23 @@
                      value="{{ campus.campus_name }}">
               <input type="hidden" name="campus_code"
                      value="{{ campus.campus_code }}">
+              <!-- Toggling is just submitting the OPPOSITE of the current
+                   state — no JS needed, and nothing to go stale if the
+                   badge above and this value ever disagreed. -->
               <input type="hidden" name="is_active"
-                     value="{% if campus.is_active %}on{% endif %}">
+                     value="{% if not campus.is_active %}on{% endif %}">
               <button type="submit"
-                      onclick="return toggleActive(this, event)"
                       class="text-xs text-itca-navy/40 hover:text-itca-navy
                              transition-colors">
                 {% if campus.is_active %}Deactivate{% else %}Activate{% endif %}
+              </button>
+            </form>
+            <form method="post" action="{% url 'academics:campus_delete' campus.pk %}">
+              {% csrf_token %}
+              <button type="submit"
+                      onclick="return confirm('Delete {{ campus.campus_name|escapejs }}? This can\'t be undone.')"
+                      class="text-xs text-red-700 hover:text-red-700 transition-colors">
+                Delete
               </button>
             </form>
           </div>
@@ -124,14 +137,24 @@
             <p class="text-sm font-medium">{{ program.program_name }}</p>
             <p class="text-xs text-itca-navy/40">{{ program.program_code }}</p>
           </div>
-          <span class="text-xs px-2 py-1 rounded-full
-            {% if program.is_active %}
-              bg-itca-green-light text-itca-green-dark
-            {% else %}
-              bg-itca-navy/10 text-itca-navy/40
-            {% endif %}">
-            {% if program.is_active %}Active{% else %}Inactive{% endif %}
-          </span>
+          <div class="flex items-center gap-3">
+            <span class="text-xs px-2 py-1 rounded-full
+              {% if program.is_active %}
+                bg-itca-green-light text-itca-green-dark
+              {% else %}
+                bg-itca-navy/10 text-itca-navy/40
+              {% endif %}">
+              {% if program.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+            <form method="post" action="{% url 'academics:program_delete' program.pk %}">
+              {% csrf_token %}
+              <button type="submit"
+                      onclick="return confirm('Delete {{ program.program_name|escapejs }}? This can\'t be undone.')"
+                      class="text-xs text-red-700 hover:text-red-700 transition-colors">
+                Delete
+              </button>
+            </form>
+          </div>
         </div>
         {% empty %}
         <p class="text-itca-navy/30 text-sm">No programs found.</p>
@@ -171,19 +194,49 @@
     <!-- Modules List -->
     <div class="rounded-2xl p-6 surface">
       <h2 class="font-semibold mb-4">Modules</h2>
+
+      <!-- Search — filters the list below server-side by name or code -->
+      <form method="get" action="{% url 'academics:settings' %}" class="mb-4 flex gap-2">
+        <input type="hidden" name="tab" value="modules">
+        <input type="text" name="module_q" value="{{ module_q }}"
+               placeholder="Search modules by name or code…"
+               class="flex-1 text-sm">
+        <button type="submit"
+                class="px-4 py-2 rounded-lg text-sm font-semibold
+                       bg-itca-blue text-white hover:opacity-90 transition-opacity">
+          Search
+        </button>
+        {% if module_q %}
+        <a href="{% url 'academics:settings' %}?tab=modules"
+           class="px-4 py-2 rounded-lg text-sm font-medium text-itca-navy/50 hover:text-itca-navy transition-colors">
+          Clear
+        </a>
+        {% endif %}
+      </form>
+
       <div class="flex flex-col gap-2">
         {% for module in modules %}
         <div class="p-3 rounded-lg surface">
           <div class="flex items-center justify-between mb-1">
             <p class="text-sm font-medium">{{ module.module_name }}</p>
-            <span class="text-xs px-2 py-1 rounded-full
-              {% if module.is_active %}
-                bg-itca-green-light text-itca-green-dark
-              {% else %}
-                bg-itca-navy/10 text-itca-navy/40
-              {% endif %}">
-              {% if module.is_active %}Active{% else %}Inactive{% endif %}
-            </span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs px-2 py-1 rounded-full
+                {% if module.is_active %}
+                  bg-itca-green-light text-itca-green-dark
+                {% else %}
+                  bg-itca-navy/10 text-itca-navy/40
+                {% endif %}">
+                {% if module.is_active %}Active{% else %}Inactive{% endif %}
+              </span>
+              <form method="post" action="{% url 'academics:module_delete' module.pk %}">
+                {% csrf_token %}
+                <button type="submit"
+                        onclick="return confirm('Delete {{ module.module_name|escapejs }}? This can\'t be undone.')"
+                        class="text-xs text-red-700 hover:text-red-700 transition-colors">
+                  Delete
+                </button>
+              </form>
+            </div>
           </div>
           <p class="text-xs text-itca-navy/40">{{ module.module_code }}</p>
           <div class="flex gap-3 mt-2">
@@ -198,7 +251,9 @@
           </div>
         </div>
         {% empty %}
-        <p class="text-itca-navy/30 text-sm">No modules found.</p>
+        <p class="text-itca-navy/30 text-sm">
+          {% if module_q %}No modules match “{{ module_q }}”.{% else %}No modules found.{% endif %}
+        </p>
         {% endfor %}
       </div>
     </div>
@@ -311,14 +366,24 @@
         <div class="p-3 rounded-lg surface">
           <div class="flex items-center justify-between mb-1">
             <p class="text-sm font-medium">{{ class_obj }}</p>
-            <span class="text-xs px-2 py-1 rounded-full
-              {% if class_obj.is_active %}
-                bg-itca-green-light text-itca-green-dark
-              {% else %}
-                bg-itca-navy/10 text-itca-navy/40
-              {% endif %}">
-              {% if class_obj.is_active %}Active{% else %}Inactive{% endif %}
-            </span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs px-2 py-1 rounded-full
+                {% if class_obj.is_active %}
+                  bg-itca-green-light text-itca-green-dark
+                {% else %}
+                  bg-itca-navy/10 text-itca-navy/40
+                {% endif %}">
+                {% if class_obj.is_active %}Active{% else %}Inactive{% endif %}
+              </span>
+              <form method="post" action="{% url 'academics:class_delete' class_obj.pk %}">
+                {% csrf_token %}
+                <button type="submit"
+                        onclick="return confirm('Delete {{ class_obj|escapejs }}? This can\'t be undone.')"
+                        class="text-xs text-red-700 hover:text-red-700 transition-colors">
+                  Delete
+                </button>
+              </form>
+            </div>
           </div>
           <div class="flex gap-4 mt-1">
             <p class="text-xs text-itca-navy/40">
@@ -348,6 +413,13 @@
       <h2 class="font-semibold mb-4">Add class</h2>
       <form method="post" action="{% url 'academics:class_add' %}">
         {% csrf_token %}
+        {% if class_form.non_field_errors %}
+        <div class="rounded-lg p-3 mb-4 text-sm bg-red-50 border border-red-300 text-red-700">
+          {% for error in class_form.non_field_errors %}
+          <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
         <div class="flex flex-col gap-4">
           {% include 'admissions/includes/form_field.html' with field=class_form.program %}
           {% include 'admissions/includes/form_field.html' with field=class_form.campus %}
@@ -372,6 +444,8 @@
   </div>
 </div>
 
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -386,8 +460,9 @@
       const btn   = document.getElementById('tab-btn-' + id);
       if (panel) panel.style.display = 'none';
       if (btn) {
-        btn.style.background = 'transparent';
-        btn.style.color = 'rgba(20,27,45,0.5)';
+        btn.style.color = 'rgba(255,255,255,0.55)';
+        btn.style.borderBottomColor = 'transparent';
+        btn.style.fontWeight = '500';
       }
     });
 
@@ -396,8 +471,9 @@
     const activeBtn   = document.getElementById('tab-btn-' + tabId);
     if (activePanel) activePanel.style.display = 'block';
     if (activeBtn) {
-      activeBtn.style.background = '#ffffff';
-      activeBtn.style.color = '#1a6de0';
+      activeBtn.style.color = '#ffffff';
+      activeBtn.style.borderBottomColor = '#ffffff';
+      activeBtn.style.fontWeight = '600';
     }
   }
 

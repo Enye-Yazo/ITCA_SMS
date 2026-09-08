@@ -1,0 +1,124 @@
+<!-- templates/academics/attendance.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Attendance — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<div class="surface-hero px-8 pt-8 pb-7">
+  <div class="relative flex items-end justify-between flex-wrap gap-4">
+    <div>
+      <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Trainer Portal</div>
+      <h1 class="text-3xl font-extrabold text-white mb-1">Attendance Register</h1>
+      {% if selected_class %}
+      <p class="text-white/55 text-sm">{{ selected_class.program.program_name }} · {{ selected_class.campus.campus_code }} Campus</p>
+      {% endif %}
+    </div>
+    <form method="get" class="flex gap-2 relative">
+      <select name="class_id" onchange="this.form.submit()" class="!bg-white/10 !border-white/15 !text-white text-sm">
+        {% for c in classes %}
+        <option value="{{ c.id }}" {% if selected_class and c.id == selected_class.id %}selected{% endif %}>
+          {{ c.program.program_code }} · {{ c.campus.campus_code }} · {{ c.cohort }} {{ c.academic_year }}
+        </option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    </form>
+  </div>
+  <div class="flex gap-0 border-b border-white/10 mt-6 relative z-10">
+    <a href="{% url 'assessments:grading_index' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">NQF5 Assessments</a>
+    <a href="{% url 'assessments:trainer_intcert' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Int. Certifications</a>
+    <a href="{% url 'academics:attendance' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">Attendance</a>
+  </div>
+</div>
+
+<div class="px-8">
+
+{% if messages %}
+{% for message in messages %}
+<div class="mt-6 rounded-lg p-3 text-sm {% if message.tags == 'error' %}bg-itca-red-light text-itca-red-dark{% else %}bg-itca-green-light text-itca-green-dark{% endif %}">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if not selected_class %}
+<div class="surface mt-6 p-8 text-center text-itca-muted text-sm">
+  You have no active class assigned yet — ask an Exec Admin to assign you one on the Settings page.
+</div>
+{% else %}
+
+<form method="get" class="flex items-center gap-3 pt-5 pb-2 flex-wrap">
+  <span class="text-sm font-semibold">Date:</span>
+  <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+  <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="!w-auto">
+  <div class="ml-auto flex items-center gap-3 text-sm">
+    <span class="text-itca-muted">Present: <strong class="text-itca-green-dark">{{ present_count }}</strong> / {{ rows|length }}</span>
+    <span class="w-px h-4 bg-itca-border"></span>
+    <span class="text-itca-muted">Absent: <strong class="text-itca-red-dark">{{ absent_count }}</strong></span>
+    <span class="w-px h-4 bg-itca-border"></span>
+    <span class="text-itca-muted">Late: <strong class="text-itca-amber-dark">{{ late_count }}</strong></span>
+  </div>
+</form>
+
+<form method="post" class="pb-10">
+  {% csrf_token %}
+  <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+  <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+
+  <div class="surface overflow-hidden mt-2">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th class="pl-5">Student</th>
+          <th>Student No.</th>
+          <th class="text-center">Status</th>
+          <th class="text-center">Time In</th>
+          <th class="text-center">MTD Rate</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="pl-5">
+            <div class="flex items-center gap-2.5">
+              <div class="avatar" style="width:32px;height:32px;font-size:0.625rem">
+                {{ row.student.applicant.first_name|slice:":1" }}{{ row.student.applicant.last_name|slice:":1" }}
+              </div>
+              <span class="font-semibold">{{ row.student.full_name }}</span>
+            </div>
+          </td>
+          <td class="text-itca-muted text-xs">{{ row.student.student_id_code }}</td>
+          <td class="text-center">
+            <select name="status_{{ row.student.id }}" class="!w-auto text-xs">
+              {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if row.record.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="text-center">
+            <input type="time" name="time_in_{{ row.student.id }}" value="{{ row.record.time_in|time:'H:i' }}" class="!w-auto text-xs">
+          </td>
+          <td class="text-center">
+            <span class="font-semibold {% if row.mtd_rate >= 90 %}text-itca-green-dark{% elif row.mtd_rate >= 75 %}text-itca-amber-dark{% else %}text-itca-red-dark{% endif %}">{{ row.mtd_rate }}%</span>
+          </td>
+          <td>
+            <input type="text" name="notes_{{ row.student.id }}" value="{{ row.record.notes|default:'' }}" placeholder="—" class="text-xs">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="flex items-center justify-end p-4 border-t border-itca-border">
+      <button type="submit" class="btn-primary">Save Register</button>
+    </div>
+  </div>
+</form>
+{% endif %}
+
+</div>
+{% endblock %}

@@ -27,3 +27,14 @@ class UserRoleForm(forms.ModelForm):
         labels = {
             'is_active': 'Active — unchecking blocks this user from signing in',
         }
+
+
+class UserInviteForm(forms.ModelForm):
+    """
+    Creates a new user record ahead of their first Entra ID sign-in — the
+    email must match their Microsoft account exactly since that's what
+    the OIDC backend matches against on login.
+    """
+    class Meta:
+        model = SystemUser
+        fields = ['first_name', 'last_name', 'email', 'role', 'campus']
