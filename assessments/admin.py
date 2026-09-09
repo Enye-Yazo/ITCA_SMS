@@ -4,7 +4,8 @@ from django.contrib import admin
 from .models import (
     StudentModule, LocalAssessment,
     InternationalExamAttempt, AccessKey,
-    LearningPlatformCredential, ExamBooking
+    LearningPlatformCredential, ExamBooking,
+    PlatformTable, PlatformColumn, PlatformRow, PlatformRowValue,
 )
 
 
@@ -17,13 +18,13 @@ class StudentModuleAdmin(admin.ModelAdmin):
 
 @admin.register(LocalAssessment)
 class LocalAssessmentAdmin(admin.ModelAdmin):
-    list_display = ['student_module', 'trainer', 'mark', 'competent', 'assessment_date']
-    list_filter = ['competent']
+    list_display = ['student_module', 'competency', 'trainer', 'assessment_date']
+    list_filter = ['competency']
 
 
 @admin.register(InternationalExamAttempt)
 class InternationalExamAttemptAdmin(admin.ModelAdmin):
-    list_display = ['student_module', 'attempt_number', 'exam_date', 'exam_result', 'score']
+    list_display = ['student_module', 'attempt_number', 'exam_date', 'score', 'pass_threshold', 'exam_result']
     list_filter = ['exam_result']
 
 
@@ -43,3 +44,25 @@ class LearningPlatformCredentialAdmin(admin.ModelAdmin):
 class ExamBookingAdmin(admin.ModelAdmin):
     list_display = ['student_module', 'exam_date', 'exam_time', 'status', 'booked_by']
     list_filter = ['status']
+
+
+@admin.register(PlatformTable)
+class PlatformTableAdmin(admin.ModelAdmin):
+    list_display = ['vendor_name', 'section', 'order']
+    list_filter = ['section']
+
+
+@admin.register(PlatformColumn)
+class PlatformColumnAdmin(admin.ModelAdmin):
+    list_display = ['table', 'label', 'column_type', 'order']
+    list_filter = ['column_type']
+
+
+@admin.register(PlatformRow)
+class PlatformRowAdmin(admin.ModelAdmin):
+    list_display = ['table', 'student', 'created_at']
+
+
+@admin.register(PlatformRowValue)
+class PlatformRowValueAdmin(admin.ModelAdmin):
+    list_display = ['row', 'column', 'value']

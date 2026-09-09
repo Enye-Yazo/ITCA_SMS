@@ -69,35 +69,34 @@ class StudentModule(models.Model):
 # ─── Local Assessment ─────────────────────────────────────────────────────────
 class LocalAssessment(models.Model):
     """
-    Each module has 2 formative assessments (95% pass mark) and
-    1 summative assessment (Competent / Not Yet Competent).
-    Auto-created when a StudentModule is created.
-    Formative marks below 95% can be remediated once — the
-    remediation mark becomes final.
+    A single Competent / Not Yet Competent rating for one NQF5
+    (local-assessment) module a student is studying, with an optional
+    trainer comment — one row per StudentModule.
+
+    Replaces the earlier 2-formative (95% pass mark, one remediation
+    attempt) + 1-summative design per client instruction: the formative
+    marks/remediation logic added complexity the business no longer
+    wants, and produced a table with one row per module per student
+    (duplicating the student's name down the page) instead of one row
+    per student. Auto-created, empty, only for modules flagged
+    `is_local_assessment=True` when a StudentModule is created — see
+    the signal below.
     """
 
-    class AssessmentType(models.TextChoices):
-        FORMATIVE_1 = 'PFA01', 'Formative 1'
-        FORMATIVE_2 = 'PFA02', 'Formative 2'
-        SUMMATIVE    = 'PSA',   'Summative'
+    class Competency(models.TextChoices):
+        COMPETENT = 'Competent', 'Competent'
+        NOT_YET_COMPETENT = 'Not Yet Competent', 'Not Yet Competent'
 
-    student_module = models.ForeignKey(
+    student_module = models.OneToOneField(
         StudentModule, on_delete=models.CASCADE,
-        related_name='local_assessments'
+        related_name='local_assessment'
     )
 
-    assessment_type = models.CharField(
-        max_length=10, choices=AssessmentType.choices,
-        default=AssessmentType.FORMATIVE_1
+    competency = models.CharField(
+        max_length=20, choices=Competency.choices, null=True, blank=True,
+        help_text="Left blank until the trainer grades this module."
     )
-
-    # Formative fields
-    mark = models.IntegerField(null=True, blank=True)
-    is_remediation = models.BooleanField(default=False)
-    remediation_mark = models.IntegerField(null=True, blank=True)
-
-    # Summative field
-    competent = models.BooleanField(null=True, blank=True)
+    comment = models.TextField(blank=True)
 
     trainer = models.ForeignKey(
         'accounts.SystemUser', on_delete=models.SET_NULL, null=True
@@ -107,57 +106,35 @@ class LocalAssessment(models.Model):
 
     class Meta:
         db_table = 'local_assessments'
-        verbose_name = 'Local Assessment'
-        verbose_name_plural = 'Local Assessments'
-        unique_together = ['student_module', 'assessment_type']
-        ordering = ['student_module', 'assessment_type']
+        verbose_name = 'NQF5 Assessment'
+        verbose_name_plural = 'NQF5 Assessments'
+        ordering = ['student_module']
 
     def __str__(self):
-        return f"{self.student_module} — {self.assessment_type}"
-
-    @property
-    def effective_mark(self):
-        """The mark that counts toward the student's average."""
-        if self.assessment_type == self.AssessmentType.SUMMATIVE:
-            return None
-        return self.remediation_mark if self.is_remediation else self.mark
+        return f"{self.student_module} — {self.competency or 'Not yet assessed'}"
 
     @property
     def passed(self):
-        """Whether this formative assessment meets the 95% pass mark."""
-        if self.effective_mark is None:
-            return None
-        return self.effective_mark >= 95
+        """Whether this module has been rated Competent."""
+        return self.competency == self.Competency.COMPETENT
 
 
-# ─── Signal: auto-create the 3 assessment slots ───────────────────────────────
+# ─── Signal: auto-create the NQF5 rating slot ──────────────────────────────────
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 @receiver(post_save, sender=StudentModule)
-def create_local_assessment_slots(sender, instance, created, **kwargs):
+def create_local_assessment_slot(sender, instance, created, **kwargs):
     """
-    Fires when a StudentModule is created.
-    Creates the 2 formative + 1 summative assessment slots, empty,
-    ready for the trainer to fill in marks.
+    Fires when a StudentModule is created for an NQF5 (local-assessment)
+    module — creates the single empty rating slot ready for the trainer
+    to grade. International-assessment-only modules never get one, which
+    is also what the Grading page's module-vs-student matrix filters on.
     """
-    if not created:
+    if not created or not instance.module.is_local_assessment:
         return
 
-    LocalAssessment.objects.bulk_create([
-        LocalAssessment(
-            student_module=instance,
-            assessment_type=LocalAssessment.AssessmentType.FORMATIVE_1
-        ),
-        LocalAssessment(
-            student_module=instance,
-            assessment_type=LocalAssessment.AssessmentType.FORMATIVE_2
-        ),
-        LocalAssessment(
-            student_module=instance,
-            assessment_type=LocalAssessment.AssessmentType.SUMMATIVE
-        ),
-    ])
+    LocalAssessment.objects.get_or_create(student_module=instance)
 
 
 # ─── International Exam Attempt ───────────────────────────────────────────────
@@ -180,14 +157,30 @@ class InternationalExamAttempt(models.Model):
 
     exam_date = models.DateField()
 
-    # Pass or fail
+    # Minimum score required to pass — recorded per attempt rather than
+    # hardcoded, since different certifications (and different exam
+    # versions of the same certification over time) have different
+    # passing thresholds. exam_result is derived from score vs this at
+    # save time (assessments/views.py:exam_attempt_record) rather than
+    # picked by hand, so the two can never disagree.
+    pass_threshold = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(1000)],
+        # Only a migration default for pre-existing rows, recorded before
+        # this field existed — matches the 700 that used to be hardcoded
+        # in the UI. Never used as a default for new attempts; the Test
+        # Admin always enters the real threshold for that exam.
+        default=700,
+        help_text="Minimum score (out of 1000) required to pass this exam."
+    )
+
+    # Pass or fail — computed from score >= pass_threshold, not chosen manually.
     exam_result = models.BooleanField(
         help_text="True = Passed, False = Failed"
     )
 
     score = models.IntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(1000)],
-        help_text="Score out of 1000 — 700 is the pass mark. Required."
+        help_text="Score out of 1000. Required."
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -296,71 +289,60 @@ class LearningPlatformCredential(models.Model):
         return f"{self.student.full_name} — {self.platform_name}"
 
 
-# ─── Signal: automatic promotion on full NQF5 pass ─────────────────────────────
+# ─── Signal: automatic graduation to Alumni on full NQF5 pass ──────────────────
 @receiver(post_save, sender=LocalAssessment)
-def auto_promote_on_full_nqf5_pass(sender, instance, **kwargs):
+def auto_graduate_on_full_nqf5_pass(sender, instance, **kwargs):
     """
-    Replaces the old manual Trainer-requests / Exec-Admin-approves
-    Promotion workflow: a student is now promoted automatically, the
-    moment every local NQF5 assessment they have (both formatives ≥95%
-    and the summative marked Competent, across every assigned module)
-    is passed.
+    A Returning-cohort student graduates to Alumni automatically, the
+    moment every NQF5 module they're assigned is rated Competent.
+
+    This used to trigger New -> Returning promotion instead, but that no
+    longer makes sense: NQF5 modules are only assessed once a student
+    reaches their Returning year (their New year is Int. Cert-focused),
+    so NQF5 completion can't gate leaving New any more. New -> Returning
+    is now purely time-based (academics.models.run_end_of_year_promotion).
+    This signal is retargeted to the transition that NQF5 completion
+    still makes sense for: Returning -> Alumni (graduation). Passing
+    every assigned international certification is NOT required to
+    graduate — a student can keep resitting a failed cert into their
+    Returning year and beyond; only NQF5 completion gates graduation.
 
     Fires on every LocalAssessment save — cheap to over-check since
-    `all_nqf5_passed` short-circuits on the first unmet assessment, and
-    the enrollment-cohort guard below makes this idempotent: once a
-    student is promoted into a Returning class, later saves see a
-    non-New active enrollment and no-op immediately.
+    `is_competent` short-circuits on the first unrated/Not-Yet-Competent
+    module, and the enrollment-status guard below makes this idempotent:
+    once a student has an Alumni record, get_or_create no-ops on every
+    later grade edit.
     """
     from academics.models import Enrollment, Class
+    from admissions.models import Alumni
 
     student = instance.student_module.student
 
-    if not student.all_nqf5_passed:
+    if not student.is_competent:
         return
 
     active_enrollment = Enrollment.objects.filter(
         student=student, status=Enrollment.EnrollmentStatus.ACTIVE
     ).select_related('class_group').first()
 
-    if not active_enrollment or active_enrollment.class_group.cohort != Class.CohortChoices.NEW:
-        # No active enrollment to promote from, or already Returning.
-        return
-
-    current_year = timezone.now().year
-    target_class = Class.objects.filter(
-        program=active_enrollment.class_group.program,
-        campus=active_enrollment.class_group.campus,
-        academic_year=current_year,
-        is_active=True,
-        cohort=Class.CohortChoices.RETURNING,
-    ).first()
-
-    if not target_class:
-        # Nothing to promote into yet — an Exec Admin still needs to
-        # create the Returning class. The student stays in their
-        # current enrollment; this signal fires again on the next
-        # grade edit and will pick the class up once it exists.
+    if not active_enrollment or active_enrollment.class_group.cohort != Class.CohortChoices.RETURNING:
+        # Not a Returning-cohort student (or no active enrollment at
+        # all, e.g. already graduated) — nothing to do.
         return
 
     with transaction.atomic():
-        active_enrollment.status = Enrollment.EnrollmentStatus.PROMOTED
-        active_enrollment.end_date = timezone.now().date()
-        active_enrollment.save()
-
-        Enrollment.objects.create(
+        _, created = Alumni.objects.get_or_create(
             student=student,
-            class_group=target_class,
-            start_date=timezone.now().date(),
-            status=Enrollment.EnrollmentStatus.ACTIVE,
+            defaults={
+                'program': student.program,
+                'campus': student.campus,
+                'graduation_date': timezone.now().date(),
+            },
         )
-
-        # The new class may have a different trainer — follow the
-        # student across, same as an Exec-Admin-approved promotion did.
-        if target_class.trainer_id and target_class.trainer_id != student.trainer_id:
-            student.trainer = target_class.trainer
-            student.save(update_fields=['trainer'])
-#
+        if created:
+            active_enrollment.status = Enrollment.EnrollmentStatus.COMPLETED
+            active_enrollment.end_date = timezone.now().date()
+            active_enrollment.save()
 
 # ─── Exam Booking ──────────────────────────────────────────────────────────────
 class ExamBooking(models.Model):
@@ -415,3 +397,98 @@ class ExamBooking(models.Model):
 
     def __str__(self):
         return f"{self.student_module} — {self.exam_date} — {self.status}"
+
+
+# ─── Platform Management ────────────────────────────────────────────────────
+# Test Admin owns provisioning of student email accounts and external
+# vendor learning-platform/lab credentials (Microsoft, CompTIA, and any
+# future vendor) — a small EAV-style schema rather than a fixed model per
+# vendor, since the Test Admin needs to add/rename/delete whole tables and
+# columns at runtime (e.g. onboarding a new certifying body) without a
+# migration each time. name/program code/student email are never stored
+# here — they're read live off the linked Student record on each row.
+class PlatformTable(models.Model):
+    """
+    One vendor's table, under one of the two portal sections
+    (Access Credentials or Labs). e.g. "Access Credentials — Microsoft".
+    """
+
+    class Section(models.TextChoices):
+        CREDENTIALS = 'Credentials', 'Access Credentials'
+        LABS = 'Labs', 'Labs'
+
+    section = models.CharField(max_length=20, choices=Section.choices)
+    vendor_name = models.CharField(max_length=100)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'platform_tables'
+        verbose_name = 'Platform Table'
+        verbose_name_plural = 'Platform Tables'
+        unique_together = ['section', 'vendor_name']
+        ordering = ['section', 'order', 'id']
+
+    def __str__(self):
+        return f"{self.get_section_display()} — {self.vendor_name}"
+
+
+class PlatformColumn(models.Model):
+    """
+    A custom column on a PlatformTable beyond the fixed Name/Program
+    Code/Student Email columns — e.g. Password, MCID, AZ-900.
+    """
+
+    class ColumnType(models.TextChoices):
+        TEXT = 'Text', 'Text'
+        PASSWORD = 'Password', 'Password'
+
+    table = models.ForeignKey(PlatformTable, on_delete=models.CASCADE, related_name='columns')
+    label = models.CharField(max_length=100)
+    column_type = models.CharField(max_length=20, choices=ColumnType.choices, default=ColumnType.TEXT)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'platform_columns'
+        verbose_name = 'Platform Column'
+        verbose_name_plural = 'Platform Columns'
+        unique_together = ['table', 'label']
+        ordering = ['table', 'order', 'id']
+
+    def __str__(self):
+        return f"{self.table.vendor_name} — {self.label}"
+
+
+class PlatformRow(models.Model):
+    """One student's row in a PlatformTable."""
+
+    table = models.ForeignKey(PlatformTable, on_delete=models.CASCADE, related_name='rows')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='platform_rows')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'platform_rows'
+        verbose_name = 'Platform Row'
+        verbose_name_plural = 'Platform Rows'
+        unique_together = ['table', 'student']
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.table} — {self.student.full_name}"
+
+
+class PlatformRowValue(models.Model):
+    """The value of one custom column for one row."""
+
+    row = models.ForeignKey(PlatformRow, on_delete=models.CASCADE, related_name='values')
+    column = models.ForeignKey(PlatformColumn, on_delete=models.CASCADE, related_name='values')
+    value = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        db_table = 'platform_row_values'
+        verbose_name = 'Platform Row Value'
+        verbose_name_plural = 'Platform Row Values'
+        unique_together = ['row', 'column']
+
+    def __str__(self):
+        return f"{self.row} — {self.column.label}: {self.value}"

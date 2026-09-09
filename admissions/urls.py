@@ -84,4 +84,21 @@ urlpatterns = [
         views.student_set_email,
         name='student_set_email'
     ),
+    path(
+        'students/<int:student_id>/modules/add/',
+        views.student_module_add,
+        name='student_module_add'
+    ),
+    path(
+        'students/<int:student_id>/delete/',
+        views.student_delete,
+        name='student_delete'
+    ),
+
+    # Exec Admin — Alumni
+    path(
+        'alumni/',
+        views.alumni_list,
+        name='alumni_list'
+    ),
 ]

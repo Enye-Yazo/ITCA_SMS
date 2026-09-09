@@ -9,6 +9,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Same pre-paint theme script as base.html — this page doesn't extend
+       it (no internal nav to show an anonymous visitor), so it's repeated
+       here rather than shared, to avoid a flash of the wrong theme. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('itca-theme');
+        if (stored === 'light' || stored === 'dark') {
+          document.documentElement.setAttribute('data-theme', stored);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <title>ITCA Student Management</title>
 
   {% load static %}
@@ -19,14 +34,43 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="{% static 'css/output.css' %}" />
+
+  <style>
+    /* This page's two panels use hardcoded backgrounds (a plain white
+       form panel, a light-blue illustration gradient) rather than the
+       shared component classes in source.css, so they get their own
+       small dark-mode override here instead. */
+    .landing-form-panel { background: var(--color-card-bg); }
+    .landing-illustration-panel { background: linear-gradient(160deg,#eef4ff 0%,#dbeafe 40%,#bfdbfe 100%); }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .landing-illustration-panel {
+        background: linear-gradient(160deg,#0f172a 0%,#131b2e 40%,#1e2a4a 100%);
+      }
+    }
+    :root[data-theme="dark"] .landing-illustration-panel {
+      background: linear-gradient(160deg,#0f172a 0%,#131b2e 40%,#1e2a4a 100%);
+    }
+  </style>
 </head>
 
 <body class="min-h-screen">
 
+  <button type="button" onclick="itcaToggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode"
+          class="text-itca-muted hover:text-itca-navy transition-colors flex items-center justify-center"
+          style="position:fixed;top:1rem;right:1rem;z-index:20;width:2rem;height:2rem">
+    <svg id="themeIconSun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+    </svg>
+    <svg id="themeIconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+  </button>
+
   <div class="min-h-screen grid grid-cols-1 lg:grid-cols-2">
 
     <!-- ── Left: form panel ──────────────────────────────────────────────── -->
-    <div class="bg-white flex flex-col px-8 py-10 md:px-16 md:py-12">
+    <div class="landing-form-panel flex flex-col px-8 py-10 md:px-16 md:py-12">
       <img src="{% static 'images/logo.png' %}" alt="ITCA Logo" class="h-9 w-auto self-start" />
 
       <div class="flex-1 flex flex-col justify-center max-w-md mx-auto w-full lg:mx-0">
@@ -67,8 +111,7 @@
     </div>
 
     <!-- ── Right: illustration panel ─────────────────────────────────────── -->
-    <div class="hidden lg:flex flex-col items-center justify-center relative overflow-hidden px-12"
-         style="background:linear-gradient(160deg,#eef4ff 0%,#dbeafe 40%,#bfdbfe 100%)">
+    <div class="landing-illustration-panel hidden lg:flex flex-col items-center justify-center relative overflow-hidden px-12">
       <div class="absolute inset-0 opacity-[0.08]"
            style="background-image:radial-gradient(circle,#2563eb 1px,transparent 1px);background-size:24px 24px"></div>
       <img src="{% static 'images/backdrops/cloud.png' %}" alt=""
@@ -80,6 +123,26 @@
   </div>
 
   <div class="h-[3px] w-full" style="background:linear-gradient(90deg,#1e3a5f,#2563eb,#0ea5e9)"></div>
+
+  <script>
+    function itcaEffectiveTheme() {
+      var explicit = document.documentElement.getAttribute('data-theme');
+      if (explicit === 'light' || explicit === 'dark') return explicit;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function itcaUpdateThemeIcon() {
+      var isDark = itcaEffectiveTheme() === 'dark';
+      document.getElementById('themeIconSun').classList.toggle('hidden', isDark);
+      document.getElementById('themeIconMoon').classList.toggle('hidden', !isDark);
+    }
+    function itcaToggleTheme() {
+      var next = itcaEffectiveTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('itca-theme', next); } catch (e) {}
+      itcaUpdateThemeIcon();
+    }
+    itcaUpdateThemeIcon();
+  </script>
 
 </body>
 </html>

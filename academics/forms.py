@@ -1,7 +1,7 @@
 # academics/forms.py
 
 from django import forms
-from .models import Campus, Program, Module, ProgramModule, Class, AttendanceRecord
+from .models import Campus, Program, Module, ProgramModule, Class, AttendanceRecord, AcademicCalendar
 
 
 class CampusForm(forms.ModelForm):
@@ -90,3 +90,29 @@ class AttendanceForm(forms.ModelForm):
     class Meta:
         model = AttendanceRecord
         fields = ['status', 'time_in', 'notes']
+
+
+class AcademicCalendarForm(forms.ModelForm):
+    """
+    Exec Admin configures the school year's start/end dates. dd/mm/yyyy
+    via the modern flatpickr widget (see base.html), same treatment as
+    every other date field in the app.
+    """
+    class Meta:
+        model = AcademicCalendar
+        fields = ['year_start', 'year_end']
+        widgets = {
+            'year_start': forms.DateInput(
+                format='%d/%m/%Y',
+                attrs={'class': 'js-datepicker', 'placeholder': 'dd/mm/yyyy', 'autocomplete': 'off'},
+            ),
+            'year_end': forms.DateInput(
+                format='%d/%m/%Y',
+                attrs={'class': 'js-datepicker', 'placeholder': 'dd/mm/yyyy', 'autocomplete': 'off'},
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['year_start'].input_formats = ['%d/%m/%Y']
+        self.fields['year_end'].input_formats = ['%d/%m/%Y']

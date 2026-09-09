@@ -99,20 +99,6 @@
 </div>
 {% endif %}
 
-<!-- ── Form Messages ─────────────────────────────────────────────────────── -->
-{% if messages %}
-{% for message in messages %}
-<div class="rounded-xl p-4 mb-4 text-sm
-  {% if message.tags == 'error' %}
-    bg-red-50 border border-red-300 text-red-700
-  {% else %}
-    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
-  {% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 <!-- ── Form Content ───────────────────────────────────────────────────────── -->
 {% block form_content %}{% endblock %}
 

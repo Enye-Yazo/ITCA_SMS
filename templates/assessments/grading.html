@@ -12,7 +12,7 @@
   <div class="relative z-10">
     <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Trainer Portal</div>
     <h1 class="text-3xl font-extrabold text-white mb-1.5">{{ request.user.full_name }}</h1>
-    <p class="text-white/55 text-sm mb-6">Click a row to enter marks. NQF5 assessments for your own students only.</p>
+    <p class="text-white/55 text-sm mb-6">Click a module cell to rate a student Competent or Not Yet Competent.</p>
 
     <div class="flex gap-0 border-b border-white/10">
       <a href="{% url 'assessments:grading_index' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">NQF5 Assessments</a>
@@ -24,72 +24,56 @@
 
 <div class="px-8 py-6">
 
-<!-- ── Grading Table ─────────────────────────────────────────────────────── -->
+<!-- ── NQF5 Competency Matrix — one row per student, one column per module ── -->
 <div class="surface p-6">
   <div class="overflow-x-auto">
-    <table class="dash-table w-full" id="gradingTable">
+    <table class="dash-table" id="gradingTable">
       <thead>
         <tr>
-          <th>Student ID</th>
-          <th>Name</th>
-          <th>Cohort</th>
-          <th>Module</th>
-          <th class="text-right">PFA01</th>
-          <th class="text-right">PFA02</th>
-          <th class="text-right">PSA</th>
+          <th class="whitespace-nowrap">Name</th>
+          {% for module in module_list %}
+          <th class="text-center whitespace-nowrap" title="{{ module.module_name }}">{{ module.module_code }}</th>
+          {% endfor %}
         </tr>
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr class="cursor-pointer hover:bg-itca-navy/5"
-            data-student-module-id="{{ row.student_module_id }}"
-            data-student-name="{{ row.student_name }}"
-            data-module-name="{{ row.module_name }}"
-            data-pfa01-mark="{{ row.pfa01.mark|default_if_none:'' }}"
-            data-pfa01-is-remediation="{{ row.pfa01.is_remediation|yesno:'true,false' }}"
-            data-pfa01-remediation-mark="{{ row.pfa01.remediation_mark|default_if_none:'' }}"
-            data-pfa02-mark="{{ row.pfa02.mark|default_if_none:'' }}"
-            data-pfa02-is-remediation="{{ row.pfa02.is_remediation|yesno:'true,false' }}"
-            data-pfa02-remediation-mark="{{ row.pfa02.remediation_mark|default_if_none:'' }}"
-            data-psa-competent="{% if row.psa.competent is None %}{% else %}{{ row.psa.competent|yesno:'true,false' }}{% endif %}"
-            onclick="openGradingModal(this)">
-
-          <td class="font-semibold text-xs">{{ row.student_id_code }}</td>
-          <td>{{ row.student_name }}</td>
-          <td class="text-itca-navy/70">{{ row.cohort }}</td>
-          <td class="text-itca-navy/70">{{ row.module_code }}</td>
-
-          <td class="text-right">
-            {% if row.pfa01.effective_mark is not None %}
-              <span class="{% if row.pfa01.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">
-                {{ row.pfa01.effective_mark }}
-              </span>
-            {% else %}<span class="text-itca-navy/30">—</span>{% endif %}
+        <tr>
+          <td class="whitespace-nowrap">
+            <div class="font-semibold">{{ row.student.full_name }}</div>
+            <div class="text-xs text-itca-navy/40">{{ row.student.student_id_code }}</div>
           </td>
-
-          <td class="text-right">
-            {% if row.pfa02.effective_mark is not None %}
-              <span class="{% if row.pfa02.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">
-                {{ row.pfa02.effective_mark }}
-              </span>
-            {% else %}<span class="text-itca-navy/30">—</span>{% endif %}
-          </td>
-
-          <td class="text-right">
-            {% if row.psa.competent is None %}
-              <span class="text-itca-navy/30">—</span>
-            {% elif row.psa.competent %}
-              <span class="score-high">Competent</span>
+          {% for cell in row.cells %}
+          <td class="text-center">
+            {% if cell.student_module_id %}
+            <button type="button"
+                    class="grading-cell-btn px-2.5 py-1 rounded-md hover:bg-itca-navy/5 transition-colors"
+                    data-student-module-id="{{ cell.student_module_id }}"
+                    data-student-name="{{ row.student.full_name }}"
+                    data-module-code="{{ cell.module_code }}"
+                    data-competency="{{ cell.competency|default:'' }}"
+                    data-comment="{{ cell.comment }}">
+              {% if cell.competency == 'Competent' %}
+                <span class="badge badge-green">C</span>
+              {% elif cell.competency == 'Not Yet Competent' %}
+                <span class="badge badge-red">NYC</span>
+              {% else %}
+                <span class="text-itca-navy/30">—</span>
+              {% endif %}
+            </button>
             {% else %}
-              <span class="score-low">Not Yet Competent</span>
+            <span class="text-itca-navy/20">n/a</span>
             {% endif %}
           </td>
-
+          {% endfor %}
         </tr>
         {% empty %}
         <tr>
-          <td colspan="7" class="text-center text-itca-navy/40 py-8">
-            No students assigned to you yet.
+          <td colspan="{{ module_list|length|add:1 }}" class="text-center text-itca-navy/40 py-8">
+            No students to grade right now — this table only shows Returning-cohort
+            students, since NQF5 is only assessed from their second year. If you have
+            New-cohort students, or your Returning students have all graduated, that's
+            why nothing appears here.
           </td>
         </tr>
         {% endfor %}
@@ -104,70 +88,36 @@
 <!-- Stays open until the update succeeds server-side, per business requirement. -->
 <div id="gradingModal"
      class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-scrim">
-  <div class="w-full max-w-lg rounded-2xl p-6 surface">
+  <div class="w-full max-w-md rounded-2xl p-6 surface">
 
     <div class="flex items-start justify-between mb-4">
       <div>
         <h2 class="font-semibold text-lg" id="modalStudentName"></h2>
         <p class="text-itca-navy/50 text-sm" id="modalModuleName"></p>
       </div>
+      <button type="button" onclick="closeGradingModal()"
+              class="text-itca-navy/40 hover:text-itca-navy text-xl leading-none">&times;</button>
     </div>
 
-    <form id="gradingForm" class="space-y-5">
+    <form id="gradingForm" class="flex flex-col gap-4">
       {% csrf_token %}
 
-      <!-- PFA01 -->
-      <fieldset class="rounded-xl p-4 surface">
-        <legend class="text-xs uppercase tracking-wider text-itca-navy/50 px-1">Formative 1 (PFA01)</legend>
-        <div class="grid grid-cols-2 gap-3 mt-2">
-          <label class="text-sm text-itca-navy/70">
-            Mark (%)
-            <input type="number" min="0" max="100" id="pfa01_mark"
-                   class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy" required>
-          </label>
-          <label class="text-sm text-itca-navy/70 flex items-center gap-2 mt-6">
-            <input type="checkbox" id="pfa01_is_remediation">
-            Remediated
-          </label>
-        </div>
-        <label class="text-sm text-itca-navy/70 block mt-3" id="pfa01_remediation_wrap">
-          Remediation Mark (%)
-          <input type="number" min="0" max="100" id="pfa01_remediation_mark"
-                 class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy">
+      <div class="grid grid-cols-2 gap-3">
+        <label class="flex items-center justify-center gap-2 rounded-lg border border-itca-navy/15 px-3 py-3 cursor-pointer text-sm font-medium has-[:checked]:border-itca-green-dark has-[:checked]:bg-itca-green-light">
+          <input type="radio" name="competency" value="Competent" id="competencyCompetent" required>
+          Competent
         </label>
-      </fieldset>
-
-      <!-- PFA02 -->
-      <fieldset class="rounded-xl p-4 surface">
-        <legend class="text-xs uppercase tracking-wider text-itca-navy/50 px-1">Formative 2 (PFA02)</legend>
-        <div class="grid grid-cols-2 gap-3 mt-2">
-          <label class="text-sm text-itca-navy/70">
-            Mark (%)
-            <input type="number" min="0" max="100" id="pfa02_mark"
-                   class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy" required>
-          </label>
-          <label class="text-sm text-itca-navy/70 flex items-center gap-2 mt-6">
-            <input type="checkbox" id="pfa02_is_remediation">
-            Remediated
-          </label>
-        </div>
-        <label class="text-sm text-itca-navy/70 block mt-3" id="pfa02_remediation_wrap">
-          Remediation Mark (%)
-          <input type="number" min="0" max="100" id="pfa02_remediation_mark"
-                 class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy">
+        <label class="flex items-center justify-center gap-2 rounded-lg border border-itca-navy/15 px-3 py-3 cursor-pointer text-sm font-medium has-[:checked]:border-itca-red-dark has-[:checked]:bg-red-50">
+          <input type="radio" name="competency" value="Not Yet Competent" id="competencyNotYet" required>
+          Not Yet Competent
         </label>
-      </fieldset>
+      </div>
 
-      <!-- PSA -->
-      <fieldset class="rounded-xl p-4 surface">
-        <legend class="text-xs uppercase tracking-wider text-itca-navy/50 px-1">Summative (PSA)</legend>
-        <select id="psa_competent" required
-                class="mt-2 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-itca-navy">
-          <option value="" disabled>Select a result</option>
-          <option value="true">Competent</option>
-          <option value="false">Not Yet Competent</option>
-        </select>
-      </fieldset>
+      <label class="text-sm text-itca-navy/70">
+        Comment (optional)
+        <textarea id="gradingComment" rows="3" placeholder="Anything the student or an Exec Admin should know…"
+                  class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2 text-sm text-itca-navy"></textarea>
+      </label>
 
       <p id="modalError" class="text-red-700 text-sm hidden"></p>
 
@@ -176,10 +126,8 @@
                 class="px-4 py-2 rounded-lg text-itca-navy/70 hover:text-itca-navy text-sm">
           Cancel
         </button>
-        <button type="submit" id="modalSubmit"
-                class="px-4 py-2 rounded-lg text-sm font-semibold"
-                style="background: var(--color-itca-blue); color: #fff;">
-          Save Marks
+        <button type="submit" id="modalSubmit" class="btn-primary">
+          Save
         </button>
       </div>
     </form>
@@ -190,47 +138,32 @@
 
 {% block extra_js %}
 <script>
-  const modal = document.getElementById('gradingModal');
   const form = document.getElementById('gradingForm');
   const modalError = document.getElementById('modalError');
-  let currentStudentModuleId = null;
+  let currentButton = null;
 
-  function toggleRemediationField(prefix) {
-    const checked = document.getElementById(`${prefix}_is_remediation`).checked;
-    document.getElementById(`${prefix}_remediation_wrap`).style.display = checked ? 'block' : 'none';
-  }
-
-  document.getElementById('pfa01_is_remediation').addEventListener('change', () => toggleRemediationField('pfa01'));
-  document.getElementById('pfa02_is_remediation').addEventListener('change', () => toggleRemediationField('pfa02'));
-
-  function openGradingModal(row) {
-    currentStudentModuleId = row.dataset.studentModuleId;
+  function openGradingModal(button) {
+    currentButton = button;
     modalError.classList.add('hidden');
 
-    document.getElementById('modalStudentName').textContent = row.dataset.studentName;
-    document.getElementById('modalModuleName').textContent = row.dataset.moduleName;
+    document.getElementById('modalStudentName').textContent = button.dataset.studentName;
+    document.getElementById('modalModuleName').textContent = button.dataset.moduleCode;
 
-    document.getElementById('pfa01_mark').value = row.dataset.pfa01Mark || '';
-    document.getElementById('pfa01_is_remediation').checked = row.dataset.pfa01IsRemediation === 'true';
-    document.getElementById('pfa01_remediation_mark').value = row.dataset.pfa01RemediationMark || '';
-    toggleRemediationField('pfa01');
+    document.getElementById('competencyCompetent').checked = button.dataset.competency === 'Competent';
+    document.getElementById('competencyNotYet').checked = button.dataset.competency === 'Not Yet Competent';
+    document.getElementById('gradingComment').value = button.dataset.comment || '';
 
-    document.getElementById('pfa02_mark').value = row.dataset.pfa02Mark || '';
-    document.getElementById('pfa02_is_remediation').checked = row.dataset.pfa02IsRemediation === 'true';
-    document.getElementById('pfa02_remediation_mark').value = row.dataset.pfa02RemediationMark || '';
-    toggleRemediationField('pfa02');
-
-    document.getElementById('psa_competent').value = row.dataset.psaCompetent || '';
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    showModal('gradingModal');
   }
 
   function closeGradingModal() {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    currentStudentModuleId = null;
+    hideModal('gradingModal');
+    currentButton = null;
   }
+
+  document.querySelectorAll('.grading-cell-btn').forEach(btn => {
+    btn.addEventListener('click', () => openGradingModal(btn));
+  });
 
   function getCookie(name) {
     const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -241,40 +174,26 @@
     event.preventDefault();
     modalError.classList.add('hidden');
 
-    // Client-side gate: the popup does not submit until every required
-    // field is present, per the business requirement.
     if (!form.reportValidity()) {
       return;
     }
 
-    const payload = {
-      PFA01: {
-        mark: document.getElementById('pfa01_mark').value,
-        is_remediation: document.getElementById('pfa01_is_remediation').checked,
-        remediation_mark: document.getElementById('pfa01_remediation_mark').value,
-      },
-      PFA02: {
-        mark: document.getElementById('pfa02_mark').value,
-        is_remediation: document.getElementById('pfa02_is_remediation').checked,
-        remediation_mark: document.getElementById('pfa02_remediation_mark').value,
-      },
-      PSA: {
-        competent: document.getElementById('psa_competent').value,
-      },
-    };
+    const competency = form.querySelector('input[name="competency"]:checked').value;
+    const comment = document.getElementById('gradingComment').value;
 
     const submitBtn = document.getElementById('modalSubmit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Saving…';
 
     try {
-      const response = await fetch(`/assessments/grading/${currentStudentModuleId}/update/`, {
+      const studentModuleId = currentButton.dataset.studentModuleId;
+      const response = await fetch(`/assessments/grading/${studentModuleId}/update/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': getCookie('csrftoken'),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ competency, comment }),
       });
       const data = await response.json();
 
@@ -282,14 +201,22 @@
         throw new Error(data.error || 'Something went wrong. Please try again.');
       }
 
-      // Popup only closes once the server confirms the update succeeded.
-      window.location.reload();
+      // Update the cell in place — no full page reload needed.
+      currentButton.dataset.competency = data.competency || '';
+      currentButton.dataset.comment = data.comment || '';
+      currentButton.innerHTML = data.label === 'C'
+        ? '<span class="badge badge-green">C</span>'
+        : data.label === 'NYC'
+          ? '<span class="badge badge-red">NYC</span>'
+          : '<span class="text-itca-navy/30">—</span>';
+
+      closeGradingModal();
     } catch (err) {
       modalError.textContent = err.message;
       modalError.classList.remove('hidden');
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Save Marks';
+      submitBtn.textContent = 'Save';
     }
   });
 </script>

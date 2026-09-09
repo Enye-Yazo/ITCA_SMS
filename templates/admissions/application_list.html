@@ -43,22 +43,6 @@
   {% endfor %}
 </div>
 
-<!-- ── Messages ──────────────────────────────────────────────────────────── -->
-{% if messages %}
-{% for message in messages %}
-<div class="rounded-xl p-4 mb-4 text-sm
-  {% if message.tags == 'error' %}
-    bg-red-50 border border-red-300 text-red-700
-  {% elif message.tags == 'warning' %}
-    bg-amber-50 border border-amber-300 text-amber-700
-  {% else %}
-    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
-  {% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 <!-- ── Applications List ─────────────────────────────────────────────────── -->
 <div class="rounded-2xl overflow-hidden surface">
 
@@ -97,8 +81,8 @@
         bg-itca-green-light text-itca-green-dark
       {% elif applicant.application_status == 'Rejected' %}
         bg-red-100 text-red-700
-      {% elif applicant.application_status == 'Waitlisted' %}
-        bg-itca-blue-light text-itca-blue
+      {% elif applicant.application_status == 'Draft' %}
+        bg-itca-surface text-itca-muted
       {% else %}
         bg-amber-100 text-amber-700
       {% endif %}">

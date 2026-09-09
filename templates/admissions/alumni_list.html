@@ -1,0 +1,169 @@
+<!-- templates/admissions/alumni_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Alumni — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<div class="surface-hero px-8 pt-9 pb-14">
+  <div class="relative z-10">
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Administration</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1.5">Alumni</h1>
+    <p class="text-white/60 text-sm">Every student who's passed every assigned NQF5 module and graduated.</p>
+  </div>
+</div>
+
+<div class="px-8 py-8 -mt-7 relative z-10">
+
+<!-- ── Stat Cards ────────────────────────────────────────────────────────── -->
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+  <div class="stat-card" style="border-left:3px solid var(--color-itca-green)">
+    <span class="text-itca-muted text-xs uppercase tracking-wider">Total Alumni</span>
+    <span class="text-3xl font-extrabold">{{ stats.total_alumni }}</span>
+    <span class="text-xs font-medium text-itca-muted">Matching current filters</span>
+  </div>
+  <div class="stat-card" style="border-left:3px solid var(--color-itca-blue)">
+    <span class="text-itca-muted text-xs uppercase tracking-wider">Graduated This Year</span>
+    <span class="text-3xl font-extrabold">{{ stats.graduated_this_year }}</span>
+    <span class="text-xs font-medium text-itca-muted">{{ current_year }} intake</span>
+  </div>
+  <div class="stat-card" style="border-left:3px solid var(--color-itca-purple)">
+    <span class="text-itca-muted text-xs uppercase tracking-wider">Avg. Certs Passed</span>
+    <span class="text-3xl font-extrabold">{{ stats.avg_certs_passed }}</span>
+    <span class="text-xs font-medium text-itca-muted">Per graduate</span>
+  </div>
+</div>
+
+<!-- ── Filters ───────────────────────────────────────────────────────────── -->
+<form method="get" class="flex flex-wrap items-center gap-3 mb-6">
+  <input type="text" name="q" value="{{ filters.q }}"
+         placeholder="Search by name or Student ID…"
+         class="filter-pill text-itca-navy text-xs placeholder-itca-navy/30">
+
+  <select name="campus" onchange="this.form.submit()" class="filter-pill text-itca-navy text-xs">
+    <option value="all" {% if filters.campus == 'all' %}selected{% endif %}>All Campuses</option>
+    {% for campus in campuses %}
+    <option value="{{ campus.id }}" {% if filters.campus == campus.id|stringformat:'s' %}selected{% endif %}>
+      {{ campus.campus_code }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="program" onchange="this.form.submit()" class="filter-pill text-itca-navy text-xs">
+    <option value="all" {% if filters.program == 'all' %}selected{% endif %}>All Programs</option>
+    {% for program in programs %}
+    <option value="{{ program.id }}" {% if filters.program == program.id|stringformat:'s' %}selected{% endif %}>
+      {{ program.program_code }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="year" onchange="this.form.submit()" class="filter-pill text-itca-navy text-xs">
+    <option value="all" {% if filters.year == 'all' %}selected{% endif %}>All Years</option>
+    {% for gy in graduation_years %}
+    <option value="{{ gy }}" {% if filters.year == gy|stringformat:'s' %}selected{% endif %}>{{ gy }}</option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="filter-pill text-xs font-semibold"
+          style="background: var(--color-itca-blue-light); color: var(--color-itca-blue-dark);">
+    Apply
+  </button>
+
+  {% if filters.campus != 'all' or filters.program != 'all' or filters.year != 'all' or filters.q %}
+  <a href="{% url 'admissions:alumni_list' %}" class="text-xs text-itca-navy/40 hover:text-itca-navy transition-colors">Clear filters</a>
+  {% endif %}
+</form>
+
+{% if not stats.total_alumni %}
+<div class="rounded-2xl surface px-6 py-12 text-center text-itca-navy/30 text-sm">
+  {% if filters.campus != 'all' or filters.program != 'all' or filters.year != 'all' or filters.q %}
+  No graduates match these filters.
+  {% else %}
+  No graduates yet — a Returning-cohort student graduates automatically once every assigned NQF5 module is rated Competent.
+  {% endif %}
+</div>
+{% else %}
+
+<!-- ── NQF5 + International Certified ───────────────────────────────────────
+     Graduated on NQF5 (required of every alumnus) and also passed at
+     least one international certification. -->
+<h2 class="font-semibold text-lg mb-3">NQF5 + International Certified <span class="text-itca-navy/40 font-normal text-sm">({{ certified_rows|length }})</span></h2>
+<div class="rounded-2xl overflow-hidden surface mb-8">
+  {% for row in certified_rows %}
+  <a href="{% url 'admissions:student_detail' row.alumni.student.pk %}"
+     class="flex items-center justify-between px-6 py-4 flex-wrap gap-3
+            hover:bg-itca-navy/5 transition-colors
+            {% if not forloop.last %}border-b border-itca-navy/5{% endif %}">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center
+                  text-sm font-semibold flex-shrink-0"
+           style="background: var(--color-itca-blue-light); color: var(--color-itca-blue);">
+        {{ row.alumni.student.applicant.first_name.0 }}{{ row.alumni.student.applicant.last_name.0 }}
+      </div>
+      <div>
+        <p class="font-medium text-sm">{{ row.alumni.student.full_name }}</p>
+        <p class="text-itca-navy/40 text-xs mt-0.5">
+          {{ row.alumni.student.student_id_code }} ·
+          {{ row.alumni.program.program_code }} ·
+          {{ row.alumni.campus.campus_code }}
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 flex-wrap justify-end max-w-xs">
+      <span class="badge badge-green">Graduated</span>
+      {% for cert in row.passed_certs %}
+      <span class="badge badge-blue">{{ cert }}</span>
+      {% endfor %}
+    </div>
+  </a>
+  {% empty %}
+  <div class="px-6 py-10 text-center text-itca-navy/30 text-sm">
+    No graduates with a passed international certification{% if filters.campus != 'all' or filters.program != 'all' or filters.year != 'all' or filters.q %} match these filters{% endif %}.
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── NQF5 Only ─────────────────────────────────────────────────────────────
+     Graduated on NQF5 alone — no international certification passed yet.
+     Not a shortfall: passing an Int Cert was never a graduation requirement. -->
+<h2 class="font-semibold text-lg mb-3">NQF5 Only <span class="text-itca-navy/40 font-normal text-sm">({{ nqf5_only_rows|length }})</span></h2>
+<div class="rounded-2xl overflow-hidden surface">
+  {% for row in nqf5_only_rows %}
+  <a href="{% url 'admissions:student_detail' row.alumni.student.pk %}"
+     class="flex items-center justify-between px-6 py-4 flex-wrap gap-3
+            hover:bg-itca-navy/5 transition-colors
+            {% if not forloop.last %}border-b border-itca-navy/5{% endif %}">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center
+                  text-sm font-semibold flex-shrink-0"
+           style="background: var(--color-itca-blue-light); color: var(--color-itca-blue);">
+        {{ row.alumni.student.applicant.first_name.0 }}{{ row.alumni.student.applicant.last_name.0 }}
+      </div>
+      <div>
+        <p class="font-medium text-sm">{{ row.alumni.student.full_name }}</p>
+        <p class="text-itca-navy/40 text-xs mt-0.5">
+          {{ row.alumni.student.student_id_code }} ·
+          {{ row.alumni.program.program_code }} ·
+          {{ row.alumni.campus.campus_code }}
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 flex-wrap justify-end max-w-xs">
+      <span class="badge badge-green">Graduated</span>
+    </div>
+  </a>
+  {% empty %}
+  <div class="px-6 py-10 text-center text-itca-navy/30 text-sm">
+    Every graduate shown here has also passed an international certification.
+  </div>
+  {% endfor %}
+</div>
+
+{% endif %}
+
+</div>
+
+{% endblock %}

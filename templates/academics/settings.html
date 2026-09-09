@@ -27,20 +27,6 @@
 
 <div class="px-8 py-6">
 
-<!-- ── Messages ──────────────────────────────────────────────────────────── -->
-{% if messages %}
-{% for message in messages %}
-<div class="rounded-xl p-4 mb-4 text-sm
-  {% if message.tags == 'error' %}
-    bg-red-50 border border-red-300 text-red-700
-  {% else %}
-    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
-  {% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 <!-- ── Campuses Tab ───────────────────────────────────────────────────────── -->
 <div id="tab-campuses" class="tab-panel">
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -84,8 +70,8 @@
             </form>
             <form method="post" action="{% url 'academics:campus_delete' campus.pk %}">
               {% csrf_token %}
-              <button type="submit"
-                      onclick="return confirm('Delete {{ campus.campus_name|escapejs }}? This can\'t be undone.')"
+              <button type="button"
+                      onclick="itcaConfirm('Delete {{ campus.campus_name|escapejs }}? This can\'t be undone.', this.form)"
                       class="text-xs text-red-700 hover:text-red-700 transition-colors">
                 Delete
               </button>
@@ -148,8 +134,8 @@
             </span>
             <form method="post" action="{% url 'academics:program_delete' program.pk %}">
               {% csrf_token %}
-              <button type="submit"
-                      onclick="return confirm('Delete {{ program.program_name|escapejs }}? This can\'t be undone.')"
+              <button type="button"
+                      onclick="itcaConfirm('Delete {{ program.program_name|escapejs }}? This can\'t be undone.', this.form)"
                       class="text-xs text-red-700 hover:text-red-700 transition-colors">
                 Delete
               </button>
@@ -214,7 +200,10 @@
         {% endif %}
       </form>
 
-      <div class="flex flex-col gap-2">
+      <!-- Vertically scrollable rather than letting the tile list expand
+           the whole page — there are 20+ modules once both NQF5 and
+           international-cert ones are counted. -->
+      <div class="flex flex-col gap-2 max-h-[28rem] overflow-y-auto pr-1">
         {% for module in modules %}
         <div class="p-3 rounded-lg surface">
           <div class="flex items-center justify-between mb-1">
@@ -230,8 +219,8 @@
               </span>
               <form method="post" action="{% url 'academics:module_delete' module.pk %}">
                 {% csrf_token %}
-                <button type="submit"
-                        onclick="return confirm('Delete {{ module.module_name|escapejs }}? This can\'t be undone.')"
+                <button type="button"
+                        onclick="itcaConfirm('Delete {{ module.module_name|escapejs }}? This can\'t be undone.', this.form)"
                         class="text-xs text-red-700 hover:text-red-700 transition-colors">
                   Delete
                 </button>
@@ -297,7 +286,7 @@
     <!-- Links List -->
     <div class="rounded-2xl p-6 surface">
       <h2 class="font-semibold mb-4">Program — module links</h2>
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2 max-h-[28rem] overflow-y-auto pr-1">
         {% for pm in program_modules %}
         <div class="flex items-center justify-between p-3 rounded-lg surface">
           <div>
@@ -313,8 +302,8 @@
           <form method="post"
                 action="{% url 'academics:program_module_delete' pm.pk %}">
             {% csrf_token %}
-            <button type="submit"
-                    onclick="return confirm('Remove this module link?')"
+            <button type="button"
+                    onclick="itcaConfirm('Remove this module link?', this.form)"
                     class="text-xs text-red-700 hover:text-red-700
                            transition-colors">
               Remove
@@ -377,8 +366,8 @@
               </span>
               <form method="post" action="{% url 'academics:class_delete' class_obj.pk %}">
                 {% csrf_token %}
-                <button type="submit"
-                        onclick="return confirm('Delete {{ class_obj|escapejs }}? This can\'t be undone.')"
+                <button type="button"
+                        onclick="itcaConfirm('Delete {{ class_obj|escapejs }}? This can\'t be undone.', this.form)"
                         class="text-xs text-red-700 hover:text-red-700 transition-colors">
                   Delete
                 </button>
@@ -444,6 +433,56 @@
   </div>
 </div>
 
+<!-- ── Academic Calendar Tab ─────────────────────────────────────────────────── -->
+<div id="tab-calendar" class="tab-panel">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="rounded-2xl p-6 surface">
+      <h2 class="font-semibold mb-4">Academic Calendar</h2>
+      <p class="text-itca-navy/50 text-sm mb-4">
+        Every actively-enrolled New-cohort student is automatically promoted to
+        Returning on the school year end date below — this is purely time-based,
+        not tied to any assessment result.
+      </p>
+      {% if calendar_form.non_field_errors %}
+      <div class="rounded-lg p-3 mb-4 text-sm bg-red-50 border border-red-300 text-red-700">
+        {% for error in calendar_form.non_field_errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="post" action="{% url 'academics:calendar_update' %}">
+        {% csrf_token %}
+        <div class="flex flex-col gap-4">
+          {% include 'admissions/includes/form_field.html' with field=calendar_form.year_start %}
+          {% include 'admissions/includes/form_field.html' with field=calendar_form.year_end %}
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg text-sm font-semibold
+                         bg-itca-blue text-white hover:opacity-90
+                         transition-opacity w-fit">
+            Save calendar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="rounded-2xl p-6 surface">
+      <h2 class="font-semibold mb-4">Status</h2>
+      <div class="flex flex-col gap-2 text-sm">
+        <p class="text-itca-navy/70">
+          Current year: <span class="font-medium">{{ academic_calendar.year_start|date:"d M Y" }} – {{ academic_calendar.year_end|date:"d M Y" }}</span>
+        </p>
+        <p class="text-itca-navy/70">
+          {% if academic_calendar.last_promoted_year == academic_calendar.year_end.year %}
+          New-cohort students already promoted to Returning for {{ academic_calendar.year_end.year }}.
+          {% else %}
+          Not yet promoted for {{ academic_calendar.year_end.year }} — will happen automatically on or after {{ academic_calendar.year_end|date:"d M Y" }}.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div>
 
 {% endblock %}
@@ -451,7 +490,7 @@
 {% block extra_js %}
 <script>
   // ── Tab definitions ────────────────────────────────────────────────────────
-  const TABS = ['campuses', 'programs', 'modules', 'classes'];
+  const TABS = ['campuses', 'programs', 'modules', 'classes', 'calendar'];
 
   function switchTab(tabId) {
     // Hide all panels

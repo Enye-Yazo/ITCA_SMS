@@ -25,7 +25,7 @@
         </option>
         {% endfor %}
       </select>
-      <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+      <input type="hidden" name="date" value="{{ selected_date|date:'d/m/Y' }}">
     </form>
   </div>
   <div class="flex gap-0 border-b border-white/10 mt-6 relative z-10">
@@ -37,14 +37,6 @@
 
 <div class="px-8">
 
-{% if messages %}
-{% for message in messages %}
-<div class="mt-6 rounded-lg p-3 text-sm {% if message.tags == 'error' %}bg-itca-red-light text-itca-red-dark{% else %}bg-itca-green-light text-itca-green-dark{% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 {% if not selected_class %}
 <div class="surface mt-6 p-8 text-center text-itca-muted text-sm">
   You have no active class assigned yet — ask an Exec Admin to assign you one on the Settings page.
@@ -54,7 +46,11 @@
 <form method="get" class="flex items-center gap-3 pt-5 pb-2 flex-wrap">
   <span class="text-sm font-semibold">Date:</span>
   <input type="hidden" name="class_id" value="{{ selected_class.id }}">
-  <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="!w-auto">
+  <!-- Not .js-datepicker (base.html's generic auto-init) — this one needs
+       its own onChange to auto-submit the form, same as the native date
+       input it replaces did via onchange. -->
+  <input type="text" name="date" value="{{ selected_date|date:'d/m/Y' }}" readonly
+         id="attendanceDatePicker" placeholder="dd/mm/yyyy" class="!w-auto">
   <div class="ml-auto flex items-center gap-3 text-sm">
     <span class="text-itca-muted">Present: <strong class="text-itca-green-dark">{{ present_count }}</strong> / {{ rows|length }}</span>
     <span class="w-px h-4 bg-itca-border"></span>
@@ -67,7 +63,7 @@
 <form method="post" class="pb-10">
   {% csrf_token %}
   <input type="hidden" name="class_id" value="{{ selected_class.id }}">
-  <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+  <input type="hidden" name="date" value="{{ selected_date|date:'d/m/Y' }}">
 
   <div class="surface overflow-hidden mt-2">
     <table class="dash-table">
@@ -121,4 +117,21 @@
 {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Picking a date reloads the register for that day — same behavior as
+  // the native <input type="date">'s onchange it replaces.
+  const attendanceDateInput = document.getElementById('attendanceDatePicker');
+  if (attendanceDateInput) {
+    flatpickr(attendanceDateInput, {
+      dateFormat: 'd/m/Y',
+      disableMobile: true,
+      onChange: function () {
+        attendanceDateInput.form.submit();
+      },
+    });
+  }
+</script>
 {% endblock %}

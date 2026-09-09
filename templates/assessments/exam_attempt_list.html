@@ -21,24 +21,11 @@
   <div class="flex gap-0 border-b border-white/10 mt-6 relative z-10">
     <a href="{% url 'assessments:exam_attempt_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">Exam Results</a>
     <a href="{% url 'assessments:booking_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Bookings</a>
+    <a href="{% url 'assessments:platform_management' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Platform Management</a>
   </div>
 </div>
 
 <div class="px-8 py-6">
-
-<!-- ── Messages ──────────────────────────────────────────────────────────── -->
-{% if messages %}
-{% for message in messages %}
-<div class="rounded-xl p-4 mb-4 text-sm
-  {% if message.tags == 'error' %}
-    bg-red-50 border border-red-300 text-red-700
-  {% else %}
-    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
-  {% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <!-- ── Filters ───────────────────────────────────────────────────────────── -->
 <form method="get" class="flex flex-wrap items-center gap-3 mb-6">
@@ -47,7 +34,7 @@
     <option value="all" {% if filters.module == 'all' %}selected{% endif %}>All Modules</option>
     {% for module in modules %}
     <option value="{{ module.module_code }}" {% if filters.module == module.module_code %}selected{% endif %}>
-      {{ module.module_code }}
+      {{ module.module_name }}
     </option>
     {% endfor %}
   </select>
@@ -102,13 +89,13 @@
           <tbody>
             {% for attempt in group.attempts %}
             <tr>
-              <td class="font-semibold">{{ attempt.student_module.module.module_code }}</td>
+              <td class="font-semibold">{{ attempt.student_module.module.module_name }}</td>
               <td class="text-itca-muted">{{ attempt.exam_date }}</td>
               <td class="text-center">
                 <span class="font-bold">{{ attempt.score }}</span>
                 <span class="text-itca-muted text-xs"> / 1000</span>
               </td>
-              <td class="text-center text-itca-muted">700</td>
+              <td class="text-center text-itca-muted">{{ attempt.pass_threshold }}</td>
               <td class="text-center">
                 <span class="badge {% if attempt.exam_result %}badge-green{% else %}badge-red{% endif %}">
                   {% if attempt.exam_result %}Passed{% else %}Failed{% endif %}

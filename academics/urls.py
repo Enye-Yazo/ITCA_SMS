@@ -27,5 +27,7 @@ urlpatterns = [
     path('settings/classes/<int:pk>/edit/', views.class_edit, name='class_edit'),
     path('settings/classes/<int:pk>/delete/', views.class_delete, name='class_delete'),
 
+    path('settings/calendar/', views.calendar_update, name='calendar_update'),
+
     path('attendance/', views.attendance_view, name='attendance'),
 ]

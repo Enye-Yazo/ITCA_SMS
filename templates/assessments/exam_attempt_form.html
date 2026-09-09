@@ -13,14 +13,6 @@
   </a>
   <h1 class="text-2xl font-bold mt-2 mb-6">Record Exam Attempt</h1>
 
-  {% if messages %}
-  {% for message in messages %}
-  <div class="rounded-xl p-4 mb-4 text-sm bg-red-50 border border-red-300 text-red-700">
-    {{ message }}
-  </div>
-  {% endfor %}
-  {% endif %}
-
   <form method="post" id="examAttemptForm">
     {% csrf_token %}
 
@@ -50,11 +42,17 @@
 
       {% include 'admissions/includes/form_field.html' with field=form.module %}
       {% include 'admissions/includes/form_field.html' with field=form.exam_date %}
-      {% include 'admissions/includes/form_field.html' with field=form.exam_result %}
 
       <div>
         {% include 'admissions/includes/form_field.html' with field=form.score %}
-        <p class="text-itca-navy/30 text-xs mt-1">Out of 1000 — 700 is the pass mark.</p>
+        <p class="text-itca-navy/30 text-xs mt-1">Out of 1000.</p>
+      </div>
+
+      <div>
+        {% include 'admissions/includes/form_field.html' with field=form.pass_threshold %}
+        <p class="text-itca-navy/30 text-xs mt-1">
+          Minimum score to pass this exam — varies by certification. Pass/Fail is worked out automatically from score vs. threshold.
+        </p>
       </div>
     </div>
 

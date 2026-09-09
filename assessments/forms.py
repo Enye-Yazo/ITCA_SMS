@@ -44,18 +44,26 @@ class InternationalExamAttemptForm(forms.ModelForm):
         error_messages={'required': 'Select a module.'},
     )
 
-    # Plain ChoiceField rather than a BooleanField Select — avoids the
-    # awkward True/False-vs-string coercion and lets us force a real
-    # choice (no option is pre-selected by default).
-    exam_result = forms.ChoiceField(
-        choices=[('', 'Select a result'), ('true', 'Passed'), ('false', 'Failed')],
-        error_messages={'required': 'Select whether the student passed or failed.'},
+    # Minimum score required to pass THIS exam — different certifications
+    # (and different versions of the same one over time) have different
+    # thresholds, so it's entered per attempt rather than assumed fixed.
+    # Pass/Fail is derived from score vs this in the view, never picked
+    # by hand — see exam_attempt_record.
+    pass_threshold = forms.IntegerField(
+        min_value=0,
+        max_value=1000,
+        help_text='Minimum score (out of 1000) needed to pass this exam.',
+        error_messages={
+            'required': 'Enter the passing threshold for this exam.',
+            'min_value': "Threshold can't be negative.",
+            'max_value': "Threshold can't exceed 1000.",
+        },
     )
 
     score = forms.IntegerField(
         min_value=0,
         max_value=1000,
-        help_text='Out of 1000 — 700 is the pass mark.',
+        help_text='Out of 1000.',
         error_messages={
             'required': 'Enter the score.',
             'min_value': 'Score can\'t be negative.',
@@ -63,18 +71,24 @@ class InternationalExamAttemptForm(forms.ModelForm):
         },
     )
 
+    # dd/mm/yyyy via the modern flatpickr widget rather than the native
+    # <input type="date"> picker — see ExamBookingForm.exam_date below for
+    # the same treatment.
+    exam_date = forms.DateField(
+        input_formats=['%d/%m/%Y'],
+        widget=forms.DateInput(
+            format='%d/%m/%Y',
+            attrs={'class': 'js-datepicker', 'placeholder': 'dd/mm/yyyy', 'autocomplete': 'off'},
+        ),
+        error_messages={
+            'required': 'Enter the exam date.',
+            'invalid': 'Enter the date as dd/mm/yyyy.',
+        },
+    )
+
     class Meta:
         model = InternationalExamAttempt
-        fields = ['exam_date', 'exam_result', 'score']
-        widgets = {
-            'exam_date': forms.DateInput(attrs={'type': 'date'}),
-        }
-
-    def clean_exam_result(self):
-        return self.cleaned_data['exam_result'] == 'true'
-        widgets = {
-            'notes': forms.Textarea(attrs={'rows': 3}),
-        }
+        fields = ['exam_date', 'score']
 
 
 class ExamBookingForm(forms.ModelForm):
@@ -89,6 +103,22 @@ class ExamBookingForm(forms.ModelForm):
         queryset=Module.objects.filter(
             is_international_assessment=True, is_active=True
         ).order_by('module_code'),
+    )
+
+    # dd/mm/yyyy via the modern flatpickr widget rather than the browser-
+    # locale-dependent HTML5 date picker. input_formats controls parsing on
+    # submit; format controls how an existing value (e.g. after a
+    # validation error on another field) is redisplayed.
+    exam_date = forms.DateField(
+        input_formats=['%d/%m/%Y'],
+        widget=forms.DateInput(
+            format='%d/%m/%Y',
+            attrs={'class': 'js-datepicker', 'placeholder': 'dd/mm/yyyy', 'autocomplete': 'off'},
+        ),
+        error_messages={
+            'required': 'Enter the exam date.',
+            'invalid': 'Enter the date as dd/mm/yyyy.',
+        },
     )
 
     class Meta:

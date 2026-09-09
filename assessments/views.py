@@ -10,99 +10,102 @@ from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
-from .models import StudentModule, LocalAssessment, InternationalExamAttempt
+from accounts.decorators import role_required
+from .models import (
+    StudentModule, LocalAssessment, InternationalExamAttempt,
+    PlatformTable, PlatformColumn, PlatformRow, PlatformRowValue,
+)
 from .forms import InternationalExamAttemptForm
 from admissions.models import Student
 
-
-def trainer_only(view_func):
-    """
-    Restricts a view to Trainers only.
-    Exec Admins are redirected to the dashboard rather than granted
-    access here — grading is scoped to a trainer's own students.
-    """
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_trainer:
-            messages.error(request, "Only Trainers can access grading.")
-            return redirect('dashboard:index')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+# Exec Admins are redirected to the dashboard rather than granted access
+# here — grading is scoped to a trainer's own students.
+trainer_only = role_required('is_trainer', "Only Trainers can access grading.", 'dashboard:index')
 
 
-# ─── Grading Table ──────────────────────────────────────────────────────────
+# ─── Grading Matrix ─────────────────────────────────────────────────────────
 @login_required
 @trainer_only
 def grading_index(request):
     """
-    Table of every module a trainer's own students are studying,
-    one row per StudentModule, with PFA01/PFA02/PSA columns.
-    Clicking a row opens a popup (rendered client-side from the row's
-    data attributes) to capture marks/competency for that module.
+    NQF5 competency matrix: one row per student, one column per NQF5
+    (local-assessment) module assigned to any of the trainer's students —
+    replacing the earlier one-row-per-module-per-student PFA/PSA table
+    (which also, as a bug, showed every module including international-
+    exam-only ones, since it never filtered on `is_local_assessment`).
+
+    Only Returning-cohort students appear here — a New-cohort student's
+    first year is Int. Cert-focused; NQF5 only comes into effect once
+    they're Returning (see academics.models.run_end_of_year_promotion,
+    the time-based New -> Returning promotion, and
+    assessments.models.auto_graduate_on_full_nqf5_pass, which graduates
+    a Returning student to Alumni once every NQF5 module is Competent).
+    A New-cohort student's NQF5 modules are still assigned underneath
+    (so they're ready the moment the student becomes Returning), just
+    not shown here yet.
+
+    Clicking a cell opens a modal (grade_update, AJAX) to rate that
+    module Competent / Not Yet Competent with an optional comment; the
+    cell then shows just "C" or "NYC".
     """
+    from academics.models import Enrollment, Class
+
     student_modules = (
         StudentModule.objects
-        .select_related(
-            'student', 'student__applicant', 'module',
+        .select_related('student', 'student__applicant', 'module', 'local_assessment')
+        .filter(
+            student__trainer=request.user,
+            module__is_local_assessment=True,
+            student__enrollments__status=Enrollment.EnrollmentStatus.ACTIVE,
+            student__enrollments__class_group__cohort=Class.CohortChoices.RETURNING,
         )
-        .prefetch_related('local_assessments')
-        .filter(student__trainer=request.user)
+        .distinct()
         .order_by('student__student_id_code', 'module__module_code')
     )
 
-    rows = []
+    students = {}
+    modules = {}
+    by_key = {}
     for sm in student_modules:
-        assessments = {a.assessment_type: a for a in sm.local_assessments.all()}
-        pfa01 = assessments.get(LocalAssessment.AssessmentType.FORMATIVE_1)
-        pfa02 = assessments.get(LocalAssessment.AssessmentType.FORMATIVE_2)
-        psa = assessments.get(LocalAssessment.AssessmentType.SUMMATIVE)
+        students.setdefault(sm.student_id, sm.student)
+        modules.setdefault(sm.module_id, sm.module)
+        by_key[(sm.student_id, sm.module_id)] = sm
 
-        # Cohort comes from the student's most recent enrollment, if any
-        latest_enrollment = sm.student.enrollments.order_by('-start_date').first()
-        cohort = latest_enrollment.class_group.cohort if latest_enrollment else '—'
+    module_list = sorted(modules.values(), key=lambda m: m.module_code)
 
-        rows.append({
-            'student_module_id': sm.id,
-            'student_id_code': sm.student.student_id_code,
-            'student_name': sm.student.full_name,
-            'cohort': cohort,
-            'module_code': sm.module.module_code,
-            'module_name': sm.module.module_name,
-            'pfa01': pfa01,
-            'pfa02': pfa02,
-            'psa': psa,
-        })
+    rows = []
+    for student_id, student in sorted(students.items(), key=lambda kv: kv[1].student_id_code):
+        cells = []
+        for module in module_list:
+            sm = by_key.get((student_id, module.id))
+            assessment = getattr(sm, 'local_assessment', None) if sm else None
+            cells.append({
+                'student_module_id': sm.id if sm else None,
+                'module_code': module.module_code,
+                'competency': assessment.competency if assessment else None,
+                'comment': assessment.comment if assessment else '',
+            })
+        rows.append({'student': student, 'cells': cells})
 
-    return render(request, 'assessments/grading.html', {'rows': rows})
+    return render(request, 'assessments/grading.html', {
+        'rows': rows, 'module_list': module_list,
+    })
 
 
 # ─── Grade Update (AJAX) ────────────────────────────────────────────────────
-def _clean_mark(value):
-    """Validates a mark is an integer 0-100, or returns None for blank input."""
-    if value in (None, ''):
-        return None
-    try:
-        mark = int(value)
-    except (TypeError, ValueError):
-        raise ValueError("Marks must be whole numbers.")
-    if not (0 <= mark <= 100):
-        raise ValueError("Marks must be between 0 and 100.")
-    return mark
-
-
 @login_required
 @trainer_only
 @require_POST
 def grade_update(request, student_module_id):
     """
-    Updates the 3 LocalAssessment records (PFA01, PFA02, PSA) for a single
-    StudentModule in one submission. Only the trainer assigned to the
-    student may update their records — enforced below, not just hidden
-    in the UI, to prevent one trainer editing another's students via a
-    guessed URL (IDOR).
+    Sets the Competent / Not Yet Competent rating (+ optional comment)
+    for a single StudentModule's NQF5 assessment. Only the trainer
+    assigned to the student may update it — enforced below, not just
+    hidden in the UI, to prevent one trainer editing another's students
+    via a guessed URL (IDOR).
     """
     student_module = get_object_or_404(
-        StudentModule.objects.select_related('student'),
+        StudentModule.objects.select_related('student', 'module'),
         pk=student_module_id
     )
 
@@ -112,74 +115,61 @@ def grade_update(request, student_module_id):
             status=403
         )
 
+    if not student_module.module.is_local_assessment:
+        return JsonResponse(
+            {'success': False, 'error': "This module isn't an NQF5 local assessment."},
+            status=400
+        )
+
+    from academics.models import Enrollment, Class
+    active_enrollment = Enrollment.objects.filter(
+        student=student_module.student, status=Enrollment.EnrollmentStatus.ACTIVE
+    ).select_related('class_group').first()
+    if not active_enrollment or active_enrollment.class_group.cohort != Class.CohortChoices.RETURNING:
+        return JsonResponse(
+            {'success': False, 'error': "NQF5 is only assessed once a student reaches their Returning year."},
+            status=400
+        )
+
     try:
         payload = json.loads(request.body or '{}')
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'success': False, 'error': "Invalid request body."}, status=400)
 
-    try:
-        with transaction.atomic():
-            assessments = {
-                a.assessment_type: a
-                for a in student_module.local_assessments.select_for_update().all()
-            }
+    competency = payload.get('competency') or None
+    if competency not in (None, *LocalAssessment.Competency.values):
+        return JsonResponse(
+            {'success': False, 'error': "Select Competent or Not Yet Competent."},
+            status=400
+        )
 
-            # ── Formative 1 & 2 ────────────────────────────────────────────
-            for key in (LocalAssessment.AssessmentType.FORMATIVE_1,
-                        LocalAssessment.AssessmentType.FORMATIVE_2):
-                assessment = assessments.get(key)
-                if assessment is None:
-                    continue
-                data = payload.get(key, {})
+    comment = (payload.get('comment') or '').strip()
 
-                mark = _clean_mark(data.get('mark'))
-                is_remediation = bool(data.get('is_remediation'))
-                remediation_mark = _clean_mark(data.get('remediation_mark'))
+    assessment, _ = LocalAssessment.objects.get_or_create(student_module=student_module)
+    assessment.competency = competency
+    assessment.comment = comment
+    assessment.trainer = request.user
+    assessment.assessment_date = timezone.now().date()
+    assessment.save()
 
-                # A remediation attempt only makes sense once the original
-                # mark exists and is below the 95% pass mark.
-                if is_remediation and (mark is None or mark >= 95):
-                    raise ValueError(
-                        "Remediation can only be recorded for a formative "
-                        "mark below 95%."
-                    )
+    if assessment.competency == LocalAssessment.Competency.COMPETENT:
+        label = 'C'
+    elif assessment.competency == LocalAssessment.Competency.NOT_YET_COMPETENT:
+        label = 'NYC'
+    else:
+        label = '—'
 
-                assessment.mark = mark
-                assessment.is_remediation = is_remediation
-                assessment.remediation_mark = remediation_mark if is_remediation else None
-                assessment.trainer = request.user
-                assessment.assessment_date = timezone.now().date()
-                assessment.save()
-
-            # ── Summative ────────────────────────────────────────────────────
-            psa = assessments.get(LocalAssessment.AssessmentType.SUMMATIVE)
-            if psa is not None:
-                data = payload.get(LocalAssessment.AssessmentType.SUMMATIVE, {})
-                competent = data.get('competent')
-                if competent not in (None, True, False, 'true', 'false'):
-                    raise ValueError("Competency must be Competent or Not Yet Competent.")
-                if isinstance(competent, str):
-                    competent = competent == 'true'
-                psa.competent = competent
-                psa.trainer = request.user
-                psa.assessment_date = timezone.now().date()
-                psa.save()
-
-    except ValueError as exc:
-        return JsonResponse({'success': False, 'error': str(exc)}, status=400)
-
-    return JsonResponse({'success': True})
+    return JsonResponse({
+        'success': True,
+        'competency': assessment.competency,
+        'comment': assessment.comment,
+        'label': label,
+    })
 
 
-def test_admin_only(view_func):
-    """Restricts a view to Test Admins only."""
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_test_admin:
-            messages.error(request, "Only Test Admins can access international exam records.")
-            return redirect('dashboard:index')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+test_admin_only = role_required(
+    'is_test_admin', "Only Test Admins can access international exam records.", 'dashboard:index'
+)
 
 
 # ─── International Exam Attempts ────────────────────────────────────────────
@@ -269,17 +259,22 @@ def exam_attempt_record(request):
 
             attempt = form.save(commit=False)
             attempt.student_module = student_module
+            attempt.pass_threshold = form.cleaned_data['pass_threshold']
+            # Pass/Fail is never picked by hand — the system compares the
+            # score against the threshold entered for this exam.
+            attempt.exam_result = attempt.score >= attempt.pass_threshold
             existing_attempts = InternationalExamAttempt.objects.filter(
                 student_module=student_module
             ).count()
             attempt.attempt_number = existing_attempts + 1
             attempt.save()
 
+            result = "Passed" if attempt.exam_result else "Failed"
             messages.success(
                 request,
                 f"Recorded attempt {attempt.attempt_number} for "
                 f"{student.full_name} — {module.module_code} "
-                f"({attempt.score}/1000, {attempt.percentage_score}%)."
+                f"({attempt.score}/1000, threshold {attempt.pass_threshold} — {result})."
             )
             return redirect('assessments:exam_attempt_list')
     else:
@@ -384,3 +379,205 @@ def trainer_intcert_view(request):
     ).filter(student_module__student__trainer=request.user).order_by('-exam_date')
 
     return render(request, 'assessments/trainer_intcert.html', {'attempts': attempts})
+
+
+# ── Platform Management ──────────────────────────────────────────────────────
+# Test Admin owns provisioning of student email accounts and external
+# vendor learning-platform/lab credentials — see PlatformTable/PlatformColumn
+# docstrings in models.py for why this is an EAV-style schema rather than a
+# fixed model per vendor.
+@login_required
+@test_admin_only
+def platform_management(request):
+    """
+    Two sections (Access Credentials, Labs), each a set of Test-Admin
+    defined vendor tables. Name/Program Code/Student Email are read live
+    off the linked Student on every row; every other column is a
+    PlatformColumn value editable inline via platform_cell_update (AJAX).
+    """
+    tables = (
+        PlatformTable.objects
+        .prefetch_related('columns', 'rows__student__applicant', 'rows__student__applicant__program',
+                           'rows__values')
+    )
+
+    sections = {
+        value: {'label': label, 'tables': []}
+        for value, label in PlatformTable.Section.choices
+    }
+
+    for table in tables:
+        columns = list(table.columns.all())
+        row_data = []
+        for row in table.rows.all():
+            value_map = {v.column_id: v.value for v in row.values.all()}
+            cells = [
+                {'column': col, 'value': value_map.get(col.id, '')}
+                for col in columns
+            ]
+            row_data.append({'row': row, 'student': row.student, 'cells': cells})
+        sections[table.section]['tables'].append({
+            'table': table, 'columns': columns, 'rows': row_data,
+        })
+
+    students = Student.objects.select_related('applicant', 'applicant__program').order_by(
+        'applicant__first_name', 'applicant__last_name'
+    )
+
+    context = {
+        'sections': sections,
+        'students': students,
+        'column_types': PlatformColumn.ColumnType.choices,
+        'section_choices': PlatformTable.Section.choices,
+    }
+    return render(request, 'assessments/platform_management.html', context)
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_table_create(request):
+    """Adds a new vendor table under a section — the "add a vendor" escape hatch."""
+    section = request.POST.get('section')
+    vendor_name = request.POST.get('vendor_name', '').strip()
+
+    if section not in PlatformTable.Section.values:
+        messages.error(request, "Select a valid section.")
+        return redirect('assessments:platform_management')
+    if not vendor_name:
+        messages.error(request, "Enter a vendor name.")
+        return redirect('assessments:platform_management')
+    if PlatformTable.objects.filter(section=section, vendor_name__iexact=vendor_name).exists():
+        messages.error(request, f"A table for {vendor_name} already exists in that section.")
+        return redirect('assessments:platform_management')
+
+    order = PlatformTable.objects.filter(section=section).count()
+    PlatformTable.objects.create(section=section, vendor_name=vendor_name, order=order)
+    messages.success(request, f"Added {vendor_name} table.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_table_delete(request, table_id):
+    table = get_object_or_404(PlatformTable, pk=table_id)
+    vendor_name = table.vendor_name
+    table.delete()
+    messages.success(request, f"Deleted {vendor_name} table.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_column_create(request, table_id):
+    """Adds a new column (e.g. another cert code) to an existing vendor table."""
+    table = get_object_or_404(PlatformTable, pk=table_id)
+    label = request.POST.get('label', '').strip()
+    column_type = request.POST.get('column_type', PlatformColumn.ColumnType.TEXT)
+
+    if not label:
+        messages.error(request, "Enter a column name.")
+        return redirect('assessments:platform_management')
+    if table.columns.filter(label__iexact=label).exists():
+        messages.error(request, f"{table.vendor_name} already has a column called {label}.")
+        return redirect('assessments:platform_management')
+    if column_type not in PlatformColumn.ColumnType.values:
+        column_type = PlatformColumn.ColumnType.TEXT
+
+    order = table.columns.count()
+    PlatformColumn.objects.create(table=table, label=label, column_type=column_type, order=order)
+    messages.success(request, f"Added column \"{label}\" to {table.vendor_name}.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_column_update(request, column_id):
+    """Renames a column or changes its type (e.g. Text ↔ Password)."""
+    column = get_object_or_404(PlatformColumn, pk=column_id)
+    label = request.POST.get('label', '').strip()
+    column_type = request.POST.get('column_type', column.column_type)
+
+    if not label:
+        messages.error(request, "Column name can't be empty.")
+        return redirect('assessments:platform_management')
+    if column.table.columns.filter(label__iexact=label).exclude(pk=column.pk).exists():
+        messages.error(request, f"{column.table.vendor_name} already has a column called {label}.")
+        return redirect('assessments:platform_management')
+
+    column.label = label
+    if column_type in PlatformColumn.ColumnType.values:
+        column.column_type = column_type
+    column.save()
+    messages.success(request, "Column updated.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_column_delete(request, column_id):
+    column = get_object_or_404(PlatformColumn, pk=column_id)
+    label = column.label
+    table_name = column.table.vendor_name
+    column.delete()
+    messages.success(request, f"Deleted column \"{label}\" from {table_name}.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_row_create(request, table_id):
+    """Adds a student to a vendor table — one row per student per table."""
+    table = get_object_or_404(PlatformTable, pk=table_id)
+    student = Student.objects.filter(pk=request.POST.get('student_id')).select_related('applicant').first()
+
+    if not student:
+        messages.error(request, "Search for and select a student from the list.")
+        return redirect('assessments:platform_management')
+
+    row, created = PlatformRow.objects.get_or_create(table=table, student=student)
+    if not created:
+        messages.error(request, f"{student.full_name} is already in the {table.vendor_name} table.")
+        return redirect('assessments:platform_management')
+
+    messages.success(request, f"Added {student.full_name} to {table.vendor_name}.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_row_delete(request, row_id):
+    row = get_object_or_404(PlatformRow, pk=row_id)
+    student_name = row.student.full_name
+    table_name = row.table.vendor_name
+    row.delete()
+    messages.success(request, f"Removed {student_name} from {table_name}.")
+    return redirect('assessments:platform_management')
+
+
+@login_required
+@test_admin_only
+@require_POST
+def platform_cell_update(request):
+    """
+    AJAX endpoint — saves one cell's value (a PlatformColumn on one
+    PlatformRow) as it's edited inline in the table, same pattern as
+    grading's grade_update.
+    """
+    try:
+        payload = json.loads(request.body or '{}')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'success': False, 'error': "Invalid request body."}, status=400)
+
+    row = get_object_or_404(PlatformRow, pk=payload.get('row_id'))
+    column = get_object_or_404(PlatformColumn, pk=payload.get('column_id'), table=row.table)
+    value = (payload.get('value') or '').strip()
+
+    PlatformRowValue.objects.update_or_create(row=row, column=column, defaults={'value': value})
+    return JsonResponse({'success': True, 'value': value})

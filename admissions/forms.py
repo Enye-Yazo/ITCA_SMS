@@ -8,6 +8,35 @@ from academics.models import Campus, Program
 # ─── Step 1: Personal Details ─────────────────────────────────────────────────
 class PersonalDetailsForm(forms.ModelForm):
 
+    # dd/mm/yyyy via the modern flatpickr widget (base.html auto-inits any
+    # .js-datepicker input) rather than the native, browser-locale-dependent
+    # <input type="date">. input_formats controls parsing on submit; format
+    # controls how an existing value is redisplayed (e.g. re-editing a draft).
+    date_of_birth = forms.DateField(
+        input_formats=['%d/%m/%Y'],
+        widget=forms.DateInput(
+            format='%d/%m/%Y',
+            attrs={'class': 'js-datepicker', 'placeholder': 'dd/mm/yyyy', 'autocomplete': 'off'},
+        ),
+        error_messages={
+            'required': 'Enter the date of birth.',
+            'invalid': 'Enter the date as dd/mm/yyyy.',
+        },
+    )
+
+    # Was already a real field on Applicant (and in this form's
+    # Meta.fields) but never actually rendered in step_1_personal.html, so
+    # it sat empty on every application — now shown and required. The
+    # model field itself stays blank=True/null=True (other, non-form
+    # creation paths — historical onboarding backfills, admin — don't need
+    # to supply one), so `required=True` is set here at the form level.
+    referral_source = forms.ChoiceField(
+        choices=Applicant.ReferralSource.choices,
+        label='Referral',
+        required=True,
+        error_messages={'required': 'Select how the applicant heard about ITCA.'},
+    )
+
     class Meta:
         model = Applicant
         fields = [
@@ -16,9 +45,6 @@ class PersonalDetailsForm(forms.ModelForm):
             'nationality', 'residential_status',
             'campus', 'program', 'referral_source',
         ]
-        widgets = {
-            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
-        }
 
     def clean_id_number(self):
         """

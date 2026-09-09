@@ -21,7 +21,7 @@
 <div class="px-8 py-8 -mt-7 relative z-10">
 
 <!-- ── Stat Cards — overlap the hero, colour-coded left border per mockup ─── -->
-<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
 
   <!-- Pending Applications → applications list, filtered to Pending -->
   <a href="{% url 'admissions:application_list' %}?status=Pending" class="stat-card stat-card-link" style="border-left:3px solid var(--color-itca-amber)">
@@ -31,7 +31,7 @@
   </a>
 
   <!-- New Registrations → summary popup, built from server-rendered data below -->
-  <button type="button" onclick="openNewRegistrationsModal()" class="stat-card stat-card-link text-left" style="border-left:3px solid var(--color-itca-green)">
+  <button type="button" onclick="showModal('newRegistrationsModal')" class="stat-card stat-card-link text-left" style="border-left:3px solid var(--color-itca-green)">
     <span class="text-itca-muted text-xs uppercase tracking-wider">New Registrations</span>
     <span class="text-3xl font-extrabold">{{ stats.new_registrations }}</span>
     <span class="text-xs font-semibold" style="color:var(--color-itca-green-dark)">This academic year</span>
@@ -58,13 +58,6 @@
     <span class="text-xs font-medium text-itca-muted">Program enrolment</span>
   </a>
 
-  <!-- Not Yet Attempted → active students with zero international exam attempts -->
-  <a href="{% url 'admissions:student_list' %}" class="stat-card stat-card-link" style="border-left:3px solid var(--color-itca-red)">
-    <span class="text-itca-muted text-xs uppercase tracking-wider">Not Yet Attempted</span>
-    <span class="text-3xl font-extrabold">{{ stats.not_yet_attempted }}</span>
-    <span class="text-xs font-semibold" style="color:var(--color-itca-red-dark)">No exam sat yet</span>
-  </a>
-
 </div>
 
 <!-- ── New Registrations Modal ──────────────────────────────────────────── -->
@@ -78,7 +71,7 @@
           {{ stats.new_registrations }} student{{ stats.new_registrations|pluralize }} enrolled this academic year
         </p>
       </div>
-      <button type="button" onclick="closeNewRegistrationsModal()" class="text-itca-navy/50 hover:text-itca-navy text-sm">
+      <button type="button" onclick="hideModal('newRegistrationsModal')" class="text-itca-navy/50 hover:text-itca-navy text-sm">
         ✕
       </button>
     </div>
@@ -111,7 +104,49 @@
     </div>
 
     <div class="flex justify-end mt-4">
-      <button type="button" onclick="closeNewRegistrationsModal()"
+      <button type="button" onclick="hideModal('newRegistrationsModal')"
+              class="px-4 py-2 rounded-lg text-sm font-semibold"
+              style="background: var(--color-itca-blue); color: #fff;">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Exam History Modal ───────────────────────────────────────────────────
+     Opened by clicking a student's name in the International Exams table —
+     shows every attempt across every module for that student, since the
+     table row itself only ever shows their latest. -->
+<div id="examHistoryModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-scrim">
+  <div class="w-full max-w-lg rounded-2xl p-6 surface">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h2 class="font-semibold text-lg" id="examHistoryStudentName"></h2>
+        <p class="text-itca-navy/50 text-sm">Full international exam attempt history</p>
+      </div>
+      <button type="button" onclick="hideModal('examHistoryModal')" class="text-itca-navy/50 hover:text-itca-navy text-sm">
+        ✕
+      </button>
+    </div>
+
+    <div class="max-h-96 overflow-y-auto">
+      <table class="dash-table w-full">
+        <thead>
+          <tr>
+            <th>Certification</th>
+            <th class="text-right">Attempt</th>
+            <th>Date</th>
+            <th class="text-right">Score</th>
+            <th class="text-right">Threshold</th>
+            <th class="text-right">Result</th>
+          </tr>
+        </thead>
+        <tbody id="examHistoryTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="flex justify-end mt-4">
+      <button type="button" onclick="hideModal('examHistoryModal')"
               class="px-4 py-2 rounded-lg text-sm font-semibold"
               style="background: var(--color-itca-blue); color: #fff;">
         Close
@@ -144,11 +179,14 @@
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2.5">
         <h2 class="font-semibold text-lg">International Exams</h2>
-        <span class="badge badge-blue">{{ stats.total_attempts }} attempt{{ stats.total_attempts|pluralize }}</span>
       </div>
       <span class="badge badge-green">● Live</span>
     </div>
-    <div class="overflow-x-auto">
+    <!-- Vertically scrollable so a full roster doesn't stretch the page —
+         click a student's name for their full attempt history (every
+         module, every attempt), since this table only ever shows their
+         latest. -->
+    <div class="overflow-x-auto overflow-y-auto max-h-96">
       <table class="dash-table" id="intcertTable">
         <thead>
           <tr>
@@ -163,7 +201,12 @@
         <tbody>
           {% for row in student_rows %}
           <tr data-program="{{ row.program_code }}" data-trainer="{{ row.trainer_id }}">
-            <td class="font-semibold text-xs">{{ row.student_name }}</td>
+            <td class="font-semibold text-xs">
+              <button type="button" onclick="openExamHistoryModal({{ row.student_id }}, '{{ row.student_name|escapejs }}')"
+                      class="text-itca-blue hover:underline text-left">
+                {{ row.student_name }}
+              </button>
+            </td>
             <td class="text-itca-navy/70">{{ row.program_code }}</td>
             <td class="text-itca-navy/70">{{ row.trainer_name }}</td>
             <td class="text-itca-navy/70">{{ row.certification }}</td>
@@ -176,6 +219,7 @@
               {% endif %}
             </td>
           </tr>
+          {{ row.all_attempts|json_script:row.attempts_dom_id }}
           {% empty %}
           <tr><td colspan="6" class="text-center text-itca-navy/40 py-8">No exam attempts recorded yet.</td></tr>
           {% endfor %}
@@ -210,61 +254,65 @@
     </p>
     {% endif %}
 
-    <!-- Performance Alert — only once there's at least one real exam
-         attempt on record; a 0% rate from zero attempts isn't a real
-         performance problem, just an empty system. -->
-    {% if stats.total_attempts > 0 and stats.pass_rate < 85 %}
-    <div class="rounded-xl p-3 mt-3" style="background: var(--color-itca-amber-light); border: 1px solid rgba(217,119,6,0.25);">
-      <p class="text-xs font-semibold mb-1" style="color:var(--color-itca-amber-dark)">⚠ Below Target</p>
-      <p class="text-itca-navy/60 text-xs leading-relaxed">
-        Overall pass rate of {{ stats.pass_rate }}% is below the 85% institutional target.
-      </p>
-    </div>
-    {% else %}
     <p class="text-itca-navy/40 text-xs mt-auto pt-4">Based on {{ stats.total_attempts }} recorded international exam attempt{{ stats.total_attempts|pluralize }}.</p>
-    {% endif %}
   </div>
 </div>
 
-<!-- ── Upcoming Bookings + Pass Rate by Certifying Body ──────────────────── -->
+<!-- ── Pass Rate by Campus + Modules Needing Attention ─────────────────────── -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
   <div class="rounded-2xl p-6 surface">
-    <h2 class="font-semibold text-lg mb-4">Upcoming Bookings</h2>
-    <div class="flex flex-col gap-2.5">
-      {% for booking in upcoming_bookings %}
-      <div class="flex items-center gap-3.5 p-2.5 bg-itca-surface rounded-lg">
-        <div class="flex flex-col items-center justify-center rounded-lg bg-itca-blue-light text-itca-blue-dark font-bold text-[11px] shrink-0" style="width:42px;height:42px">
-          {{ booking.exam_date|date:"d" }}<span class="font-medium" style="font-size:9px">{{ booking.exam_date|date:"M"|upper }}</span>
+    <h2 class="font-semibold text-lg mb-4">Pass Rate by Campus</h2>
+    <!-- A sorted bar list, not a fixed side-by-side grid — scales to any
+         number of campuses instead of breaking past two. -->
+    <div class="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1">
+      {% for row in campus_pass_rates %}
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-itca-navy w-28 text-right shrink-0 truncate">{{ row.campus_name }}</span>
+        <div class="flex-1 h-6 rounded-md bg-itca-surface overflow-hidden">
+          {% if row.pass_rate is not None %}
+          <div class="h-full rounded-md flex items-center justify-end px-2"
+               style="width:{{ row.pass_rate }}%;background:linear-gradient(90deg,#2563eb,#0ea5e9)">
+            <span class="text-[11px] font-bold text-white">{{ row.pass_rate }}%</span>
+          </div>
+          {% endif %}
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-semibold">{{ booking.student_module.module.module_code }} — {{ booking.student_module.student.full_name }}</div>
-          <div class="text-xs text-itca-muted mt-0.5">{{ booking.exam_time|default:"Time TBC" }}</div>
-        </div>
-        <span class="badge badge-amber">Scheduled</span>
+        <span class="text-xs text-itca-navy/40 w-20 shrink-0">
+          {% if row.pass_rate is not None %}{{ row.passed }}/{{ row.total }}{% else %}No attempts{% endif %}
+        </span>
       </div>
       {% empty %}
-      <p class="text-itca-navy/30 text-sm">No exams currently scheduled.</p>
+      <p class="text-itca-navy/30 text-sm">No campuses configured.</p>
       {% endfor %}
     </div>
-    <a href="{% url 'assessments:booking_list' %}" class="text-xs text-itca-blue font-medium mt-4 inline-block">View all bookings →</a>
+    {% if campus_comparison %}
+    <p class="text-xs text-itca-navy/40 mt-4 text-center">{{ campus_comparison }}</p>
+    {% endif %}
   </div>
 
   <div class="rounded-2xl p-6 surface">
-    <h2 class="font-semibold text-lg mb-4">Pass Rate by Certifying Body</h2>
-    <div class="flex flex-col gap-3">
-      {% for row in body_rows %}
-      <div class="flex items-center gap-3">
-        <span class="text-sm text-itca-muted w-28 text-right shrink-0 truncate">{{ row.body|default:"Unspecified" }}</span>
-        <div class="flex-1 h-6 rounded-md bg-itca-surface overflow-hidden">
-          <div class="h-full rounded-md flex items-center justify-end px-2" style="width:{{ row.pass_pct }}%;background:linear-gradient(90deg,#2563eb,#0ea5e9)">
-            <span class="text-[11px] font-bold text-white">{{ row.pass_pct }}%</span>
+    <h2 class="font-semibold text-lg mb-1">Modules Needing Attention</h2>
+    <p class="text-itca-navy/40 text-xs mb-4">Certifications where more than 40% of the students who've sat them still haven't passed</p>
+    <!-- A short alert-style list, not a ranked bar chart — with a strict
+         >40% threshold this is usually 0-3 items, so "how severe" (colour
+         + a big number) reads better here than "how it compares to the
+         others" (a proportional bar). -->
+    <div class="flex flex-col gap-2.5 max-h-80 overflow-y-auto pr-1">
+      {% for row in modules_needing_attention %}
+      <div class="flex items-center gap-3.5 p-3 rounded-lg" style="background: var(--color-itca-red-light);">
+        <div class="flex items-center justify-center rounded-lg font-bold text-sm shrink-0"
+             style="width:48px;height:48px;background:var(--color-card-bg);color:var(--color-itca-red-dark);">
+          {{ row.fail_pct }}%
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold truncate">{{ row.module_name }}</div>
+          <div class="text-xs mt-0.5" style="color:var(--color-itca-red-dark)">
+            {{ row.failed_students }} of {{ row.total_students }} student{{ row.total_students|pluralize }} haven't passed yet
           </div>
         </div>
-        <span class="text-xs text-itca-navy/40 w-16 shrink-0">{{ row.passed }}/{{ row.total }}</span>
       </div>
       {% empty %}
-      <p class="text-itca-navy/30 text-sm">No exam attempts recorded yet.</p>
+      <p class="text-itca-navy/30 text-sm">No modules currently exceed the 40% fail-rate threshold.</p>
       {% endfor %}
     </div>
   </div>
@@ -291,17 +339,34 @@
     });
   }
 
-  // ── New Registrations popup ──────────────────────────────────────────────
-  function openNewRegistrationsModal() {
-    const modal = document.getElementById('newRegistrationsModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
+  // ── Exam History popup — full attempt history for one student ───────────
+  function openExamHistoryModal(studentId, studentName) {
+    document.getElementById('examHistoryStudentName').textContent = studentName;
 
-  function closeNewRegistrationsModal() {
-    const modal = document.getElementById('newRegistrationsModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    const dataEl = document.getElementById('attempts-data-' + studentId);
+    const attempts = dataEl ? JSON.parse(dataEl.textContent) : [];
+    const tbody = document.getElementById('examHistoryTableBody');
+
+    if (attempts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-itca-navy/40 py-8">No attempts recorded.</td></tr>';
+    } else {
+      tbody.innerHTML = attempts.map(a => `
+        <tr>
+          <td class="font-semibold text-xs">${a.module_name}</td>
+          <td class="text-right text-itca-navy/70">#${a.attempt_number}</td>
+          <td class="text-itca-navy/70">${a.exam_date}</td>
+          <td class="text-right">${a.score}<span class="text-itca-navy/30"> /1000</span></td>
+          <td class="text-right text-itca-navy/70">${a.threshold}</td>
+          <td class="text-right">
+            ${a.passed
+              ? '<span class="badge badge-green">Passed</span>'
+              : '<span class="badge badge-red">Failed</span>'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    showModal('examHistoryModal');
   }
 </script>
 {% endblock %}

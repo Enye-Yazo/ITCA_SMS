@@ -1,0 +1,392 @@
+<!-- templates/assessments/platform_management.html -->
+{% extends 'base.html' %}
+
+{% block title %}Platform Management — ITCA Portal{% endblock %}
+{% block main_class %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* The vendor table cards have no outer padding (overflow-hidden, so the
+     header/scroll area can bleed edge-to-edge), which left the Name
+     column's text flush against the card border. Every other column
+     already has right-side breathing room from .dash-table's own padding
+     — only the first column needed a left inset added back. */
+  .dash-table th:first-child,
+  .dash-table td:first-child {
+    padding-left: 1.25rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero + Tabs ───────────────────────────────────────────────────────── -->
+<div class="surface-hero px-8 pt-8 pb-0">
+  <div class="relative z-10">
+    <div class="text-xs font-medium uppercase tracking-widest text-white/50 mb-1.5">Test Administration</div>
+    <h1 class="text-3xl font-extrabold text-white mb-1.5">Platform Management</h1>
+    <p class="text-white/55 text-sm mb-6">Student email accounts and external vendor platform / lab credentials</p>
+  </div>
+  <div class="flex gap-0 border-b border-white/10 mt-6 relative z-10">
+    <a href="{% url 'assessments:exam_attempt_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Exam Results</a>
+    <a href="{% url 'assessments:booking_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Bookings</a>
+    <a href="{% url 'assessments:platform_management' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">Platform Management</a>
+  </div>
+</div>
+
+<div class="px-8 py-6">
+
+<!-- ── Shared student search datalist (used by every "+ Student" popover) ──── -->
+<datalist id="platformStudentOptions">
+  {% for student in students %}
+  <option data-student-id="{{ student.id }}"
+          value="{{ student.full_name }} ({{ student.student_id_code }})"></option>
+  {% endfor %}
+</datalist>
+
+{% for section_value, section in sections.items %}
+<section class="mb-10">
+  <h2 class="text-lg font-bold mb-4">{{ section.label }}</h2>
+
+  {% for item in section.tables %}
+  <div class="surface overflow-hidden mb-6">
+
+    <!-- Table header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-itca-border flex-wrap gap-2">
+      <h3 class="font-bold text-[15px]">{{ item.table.vendor_name }}</h3>
+      <div class="flex items-center gap-2">
+
+        <!-- Add column / Add student — open the shared modals below, rather
+             than a cramped inline dropdown, so there's always room to see
+             what's being typed and an actual Save/Add button. -->
+        <button type="button"
+                onclick="openAddColumnModal({{ item.table.id }}, '{{ item.table.vendor_name|escapejs }}')"
+                class="btn-secondary !text-xs !py-1.5 !px-3">
+          + Column
+        </button>
+        <button type="button"
+                onclick="openAddStudentModal({{ item.table.id }}, '{{ item.table.vendor_name|escapejs }}')"
+                class="btn-secondary !text-xs !py-1.5 !px-3">
+          + Student
+        </button>
+
+        <!-- Delete table -->
+        <form method="post" action="{% url 'assessments:platform_table_delete' item.table.id %}">
+          {% csrf_token %}
+          <button type="button"
+                  onclick="itcaConfirm('Delete the {{ item.table.vendor_name|escapejs }} table? This removes every row and value in it.', this.form)"
+                  class="text-xs text-red-700 hover:text-red-700 transition-colors px-2">
+            Delete table
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Table body -->
+    <div class="overflow-x-auto">
+      <table class="dash-table w-full">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Program Code</th>
+            <th>Student Email</th>
+            {% for col in item.columns %}
+            <th>
+              <div class="flex items-center gap-1.5">
+                <span>{{ col.label }}</span>
+                <details class="relative">
+                  <summary class="cursor-pointer list-none text-itca-navy/40 hover:text-itca-navy">⋮</summary>
+                  <div class="absolute left-0 mt-1 z-20 surface p-3 w-56 flex flex-col gap-3">
+                    <form method="post" action="{% url 'assessments:platform_column_update' col.id %}" class="flex flex-col gap-2">
+                      {% csrf_token %}
+                      <input type="text" name="label" value="{{ col.label }}" class="text-xs" required>
+                      <select name="column_type" class="text-xs">
+                        {% for value, label in column_types %}
+                        <option value="{{ value }}" {% if col.column_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                      <button type="submit" class="btn-primary !text-xs !py-1.5">Save</button>
+                    </form>
+                    <form method="post" action="{% url 'assessments:platform_column_delete' col.id %}">
+                      {% csrf_token %}
+                      <button type="button"
+                              onclick="itcaConfirm('Delete column {{ col.label|escapejs }}? This deletes its data for every row.', this.form)"
+                              class="text-xs text-red-700 hover:text-red-700 text-left w-full">
+                        Delete column
+                      </button>
+                    </form>
+                  </div>
+                </details>
+              </div>
+            </th>
+            {% endfor %}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in item.rows %}
+          <tr>
+            <td class="font-medium">{{ r.student.full_name }}</td>
+            <td class="text-itca-muted">{{ r.student.program.program_code|default:"—" }}</td>
+            <td>
+              {% if r.student.student_email %}
+              <span class="text-itca-blue">{{ r.student.student_email }}</span>
+              {% else %}
+              <details>
+                <summary class="text-xs text-itca-blue cursor-pointer list-none font-medium">+ Create email</summary>
+                <form method="post" action="{% url 'admissions:student_set_email' r.student.pk %}"
+                      class="mt-1.5 flex flex-col gap-1.5 w-52">
+                  {% csrf_token %}
+                  <input type="hidden" name="from_platform" value="1">
+                  <input type="email" name="student_email" placeholder="name@itca.ac.za" required class="text-xs">
+                  <button type="submit" class="btn-primary !text-xs !py-1">Save</button>
+                </form>
+              </details>
+              {% endif %}
+            </td>
+            {% for cell in r.cells %}
+            <td>
+              <span class="platform-cell cursor-pointer hover:underline decoration-dotted"
+                    data-row="{{ r.row.id }}"
+                    data-column="{{ cell.column.id }}"
+                    data-type="{{ cell.column.column_type }}"
+                    data-value="{{ cell.value }}">
+                {% if cell.column.column_type == 'Password' and cell.value %}••••••••{% else %}{{ cell.value|default:"—" }}{% endif %}
+              </span>
+            </td>
+            {% endfor %}
+            <td>
+              <form method="post" action="{% url 'assessments:platform_row_delete' r.row.id %}">
+                {% csrf_token %}
+                <button type="button"
+                        onclick="itcaConfirm('Remove {{ r.student.full_name|escapejs }} from this table?', this.form)"
+                        class="text-xs text-red-700 hover:text-red-700 transition-colors">
+                  Remove
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{{ item.columns|length|add:4 }}" class="text-center text-itca-muted py-6">
+              No students in this table yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Add vendor table -->
+  <div class="surface p-4">
+    <form method="post" action="{% url 'assessments:platform_table_create' %}" class="flex items-center gap-3 flex-wrap">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="{{ section_value }}">
+      <input type="text" name="vendor_name" placeholder="Vendor name e.g. Pearson VUE"
+             required class="text-sm flex-1 min-w-[200px]">
+      <button type="submit" class="btn-secondary !text-xs">+ Add vendor table</button>
+    </form>
+  </div>
+</section>
+{% endfor %}
+
+</div>
+
+<!-- ── Add Column Modal ─────────────────────────────────────────────────────
+     Shared by every table — opened with the target table's id/name filled
+     in via JS, rather than one cramped inline dropdown per table, so
+     there's room for the fields and an actual submit button. -->
+<div id="addColumnModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-scrim">
+  <div class="w-full max-w-md rounded-2xl p-6 surface">
+    <div class="flex items-start justify-between mb-5">
+      <div>
+        <h2 class="font-semibold text-lg">Add column</h2>
+        <p class="text-itca-navy/50 text-sm" id="addColumnTableName"></p>
+      </div>
+      <button type="button" onclick="hideModal('addColumnModal')"
+              class="text-itca-navy/40 hover:text-itca-navy text-xl leading-none">&times;</button>
+    </div>
+    <form id="addColumnForm" method="post">
+      {% csrf_token %}
+      <div class="flex flex-col gap-4">
+        <label class="text-sm text-itca-navy/70">
+          Column name
+          <input type="text" name="label" required autofocus
+                 class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2.5 text-sm text-itca-navy">
+        </label>
+        <label class="text-sm text-itca-navy/70">
+          Type
+          <select name="column_type"
+                  class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2.5 text-sm text-itca-navy">
+            {% for value, label in column_types %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" onclick="hideModal('addColumnModal')"
+                class="text-sm text-itca-navy/50 hover:text-itca-navy px-4 py-2 transition-colors">
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary">Add column</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Add Student Modal ────────────────────────────────────────────────── -->
+<div id="addStudentModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-scrim">
+  <div class="w-full max-w-md rounded-2xl p-6 surface">
+    <div class="flex items-start justify-between mb-5">
+      <div>
+        <h2 class="font-semibold text-lg">Add student</h2>
+        <p class="text-itca-navy/50 text-sm" id="addStudentTableName"></p>
+      </div>
+      <button type="button" onclick="hideModal('addStudentModal')"
+              class="text-itca-navy/40 hover:text-itca-navy text-xl leading-none">&times;</button>
+    </div>
+    <form id="addStudentForm" method="post">
+      {% csrf_token %}
+      <label class="text-sm text-itca-navy/70">
+        Student
+        <input type="text" id="addStudentSearch" autocomplete="off"
+               placeholder="Search by name or Student ID…" list="platformStudentOptions"
+               class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2.5 text-sm text-itca-navy">
+      </label>
+      <input type="hidden" name="student_id" id="addStudentHidden">
+      <p id="addStudentError" class="hidden text-red-700 text-xs mt-2">
+        Search for and select a student from the list before adding.
+      </p>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" onclick="hideModal('addStudentModal')"
+                class="text-sm text-itca-navy/50 hover:text-itca-navy px-4 py-2 transition-colors">
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary">Add student</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  // URL templates with a placeholder table id (0) swapped out at open-time —
+  // keeps every URL server-generated via Django's url tag rather than hand-built.
+  const COLUMN_CREATE_URL_TEMPLATE = "{% url 'assessments:platform_column_create' 0 %}";
+  const ROW_CREATE_URL_TEMPLATE = "{% url 'assessments:platform_row_create' 0 %}";
+
+  function openAddColumnModal(tableId, vendorName) {
+    const form = document.getElementById('addColumnForm');
+    form.action = COLUMN_CREATE_URL_TEMPLATE.replace('/tables/0/', `/tables/${tableId}/`);
+    form.reset();
+    document.getElementById('addColumnTableName').textContent = vendorName;
+    showModal('addColumnModal');
+    form.querySelector('input[name="label"]').focus();
+  }
+
+  function openAddStudentModal(tableId, vendorName) {
+    const form = document.getElementById('addStudentForm');
+    form.action = ROW_CREATE_URL_TEMPLATE.replace('/tables/0/', `/tables/${tableId}/`);
+    form.reset();
+    document.getElementById('addStudentHidden').value = '';
+    document.getElementById('addStudentError').classList.add('hidden');
+    document.getElementById('addStudentTableName').textContent = vendorName;
+    showModal('addStudentModal');
+    document.getElementById('addStudentSearch').focus();
+  }
+
+  // ── "Add student" modal: resolve the typed search text back to a student ID
+  const addStudentSearch = document.getElementById('addStudentSearch');
+  const addStudentHidden = document.getElementById('addStudentHidden');
+  const addStudentError = document.getElementById('addStudentError');
+  const studentOptions = document.querySelectorAll('#platformStudentOptions option');
+
+  function resolveAddStudentSelection() {
+    let matchedId = '';
+    studentOptions.forEach(opt => {
+      if (opt.value === addStudentSearch.value) matchedId = opt.dataset.studentId;
+    });
+    addStudentHidden.value = matchedId;
+    return matchedId;
+  }
+
+  addStudentSearch.addEventListener('input', resolveAddStudentSelection);
+
+  document.getElementById('addStudentForm').addEventListener('submit', function (event) {
+    if (!resolveAddStudentSelection()) {
+      event.preventDefault();
+      addStudentError.classList.remove('hidden');
+      addStudentSearch.focus();
+    }
+  });
+
+  // ── Click-to-edit cells — saved inline via platform_cell_update ─────────
+  document.querySelectorAll('.platform-cell').forEach(cell => {
+    cell.addEventListener('click', function onOpen() {
+      if (cell.querySelector('input')) return; // already editing
+
+      const rawValue = cell.dataset.value || '';
+      const isPassword = cell.dataset.type === 'Password';
+
+      const input = document.createElement('input');
+      input.type = isPassword ? 'password' : 'text';
+      input.value = rawValue;
+      input.className = 'text-sm w-full';
+
+      cell.textContent = '';
+      cell.appendChild(input);
+      input.focus();
+      input.select();
+
+      let saved = false;
+      async function save() {
+        if (saved) return;
+        saved = true;
+        const newValue = input.value;
+
+        try {
+          const response = await fetch('{% url "assessments:platform_cell_update" %}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+              row_id: cell.dataset.row,
+              column_id: cell.dataset.column,
+              value: newValue,
+            }),
+          });
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || 'Save failed');
+
+          cell.dataset.value = newValue;
+          cell.textContent = isPassword && newValue ? '••••••••' : (newValue || '—');
+        } catch (err) {
+          cell.dataset.value = rawValue;
+          cell.textContent = isPassword && rawValue ? '••••••••' : (rawValue || '—');
+        }
+      }
+
+      input.addEventListener('blur', save);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') {
+          saved = true; // discard
+          cell.textContent = isPassword && rawValue ? '••••••••' : (rawValue || '—');
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

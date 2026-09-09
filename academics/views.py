@@ -6,25 +6,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import ProtectedError, Q
 
-from .models import Campus, Program, Module, ProgramModule, Class, Enrollment, AttendanceRecord
+from accounts.decorators import role_required
+from .models import Campus, Program, Module, ProgramModule, Class, Enrollment, AttendanceRecord, AcademicCalendar
 from .forms import (
     CampusForm, ProgramForm, ModuleForm,
-    ClassForm, ProgramModuleForm
+    ClassForm, ProgramModuleForm, AcademicCalendarForm
 )
 
-
-def exec_only(view_func):
-    """
-    Decorator that restricts a view to Exec Admins only.
-    Redirects all other roles to the dashboard.
-    """
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_exec_admin:
-            messages.error(request, "Only Exec Admins can access Settings.")
-            return redirect('dashboard:index')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+exec_only = role_required('is_exec_admin', "Only Exec Admins can access Settings.", 'dashboard:index')
 
 
 # ─── Settings Index ───────────────────────────────────────────────────────────
@@ -36,43 +25,7 @@ def settings_index(request):
     Displays all campuses, programs, modules, program-module links
     and classes in a tabbed layout.
     """
-    module_q = request.GET.get('module_q', '').strip()
-    modules = Module.objects.all().order_by('module_name')
-    if module_q:
-        modules = modules.filter(
-            Q(module_name__icontains=module_q) | Q(module_code__icontains=module_q)
-        )
-
-    context = {
-        'campuses':        Campus.objects.all().order_by('campus_name'),
-        'programs':        Program.objects.all().order_by('program_name'),
-        'modules':         modules,
-        'module_q':        module_q,
-        'program_modules': ProgramModule.objects.select_related(
-                               'program', 'module'
-                           ).order_by('program', 'module'),
-        'classes':         Class.objects.select_related(
-                               'program', 'campus', 'trainer'
-                           ).order_by('-academic_year', 'program'),
-
-        # Forms for inline add panels
-        'campus_form':         CampusForm(),
-        'program_form':        ProgramForm(),
-        'module_form':         ModuleForm(),
-        'program_module_form': ProgramModuleForm(),
-        'class_form':          ClassForm(),
-
-        # Active tab — preserved after form submission errors
-        'active_tab': request.GET.get('tab', 'campuses'),
-
-        'tabs': [
-            ('campuses',       'Campuses'),
-            ('programs',       'Programs'),
-            ('modules',        'Modules'),
-            ('classes',        'Classes'),
-        ],
-    }
-    return render(request, 'academics/settings.html', context)
+    return render(request, 'academics/settings.html', _settings_context(request))
 
 
 # ─── Campus Views ─────────────────────────────────────────────────────────────
@@ -84,9 +37,9 @@ def campus_add(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Campus added successfully.")
-            return redirect('academics:settings')
+            return redirect(f"{reverse('academics:settings')}?tab=campuses")
         # Return to settings with the form errors and correct tab open
-        context = _settings_context(campus_form=form)
+        context = _settings_context(request, campus_form=form)
         return render(request, 'academics/settings.html', context)
     return redirect('academics:settings')
 
@@ -100,8 +53,7 @@ def campus_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"{campus.campus_name} updated.")
-            return redirect('academics:settings')
-    return redirect('academics:settings')
+    return redirect(f"{reverse('academics:settings')}?tab=campuses")
 
 
 @login_required
@@ -131,8 +83,8 @@ def program_add(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Program added successfully.")
-            return redirect('academics:settings')
-        context = _settings_context(program_form=form, active_tab='programs')
+            return redirect(f"{reverse('academics:settings')}?tab=programs")
+        context = _settings_context(request, program_form=form, active_tab='programs')
         return render(request, 'academics/settings.html', context)
     return redirect('academics:settings')
 
@@ -146,8 +98,7 @@ def program_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"{program.program_name} updated.")
-            return redirect('academics:settings')
-    return redirect('academics:settings')
+    return redirect(f"{reverse('academics:settings')}?tab=programs")
 
 
 @login_required
@@ -177,8 +128,8 @@ def module_add(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Module added successfully.")
-            return redirect('academics:settings')
-        context = _settings_context(module_form=form, active_tab='modules')
+            return redirect(f"{reverse('academics:settings')}?tab=modules")
+        context = _settings_context(request, module_form=form, active_tab='modules')
         return render(request, 'academics/settings.html', context)
     return redirect('academics:settings')
 
@@ -192,8 +143,7 @@ def module_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"{module.module_name} updated.")
-            return redirect('academics:settings')
-    return redirect('academics:settings')
+    return redirect(f"{reverse('academics:settings')}?tab=modules")
 
 
 @login_required
@@ -223,10 +173,13 @@ def program_module_add(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Module linked to program.")
-            return redirect('academics:settings')
+            return redirect(f"{reverse('academics:settings')}?tab=modules")
+        # 'modules' — Program-Module Links lives inside the Modules tab,
+        # there's no separate 'program_modules' tab in the tab strip.
         context = _settings_context(
+            request,
             program_module_form=form,
-            active_tab='program_modules'
+            active_tab='modules'
         )
         return render(request, 'academics/settings.html', context)
     return redirect('academics:settings')
@@ -239,7 +192,7 @@ def program_module_delete(request, pk):
     if request.method == 'POST':
         pm.delete()
         messages.success(request, "Module unlinked from program.")
-    return redirect('academics:settings')
+    return redirect(f"{reverse('academics:settings')}?tab=modules")
 
 
 # ─── Class Views ──────────────────────────────────────────────────────────────
@@ -251,8 +204,8 @@ def class_add(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Class created successfully.")
-            return redirect('academics:settings')
-        context = _settings_context(class_form=form, active_tab='classes')
+            return redirect(f"{reverse('academics:settings')}?tab=classes")
+        context = _settings_context(request, class_form=form, active_tab='classes')
         return render(request, 'academics/settings.html', context)
     return redirect('academics:settings')
 
@@ -266,8 +219,7 @@ def class_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, f"Class updated.")
-            return redirect('academics:settings')
-    return redirect('academics:settings')
+    return redirect(f"{reverse('academics:settings')}?tab=classes")
 
 
 @login_required
@@ -288,50 +240,84 @@ def class_delete(request, pk):
     return redirect(f"{reverse('academics:settings')}?tab=classes")
 
 
+# ─── Academic Calendar ─────────────────────────────────────────────────────────
+@login_required
+@exec_only
+def calendar_update(request):
+    """
+    Updates the singleton AcademicCalendar (year_start/year_end). No
+    add/delete — there's only ever one, loaded via AcademicCalendar.load().
+    """
+    calendar = AcademicCalendar.load()
+    if request.method == 'POST':
+        form = AcademicCalendarForm(request.POST, instance=calendar)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Academic calendar updated.")
+            return redirect(f"{reverse('academics:settings')}?tab=calendar")
+        context = _settings_context(request, calendar_form=form, active_tab='calendar')
+        return render(request, 'academics/settings.html', context)
+    return redirect(f"{reverse('academics:settings')}?tab=calendar")
+
+
 # ─── Helper ───────────────────────────────────────────────────────────────────
-def _settings_context(**overrides):
+def _settings_context(request, **overrides):
     """
-    Builds the full settings context.
-    Accepts overrides so a form with errors can be passed back
-    to the correct tab without losing the rest of the page data.
+    Builds the full settings context — the single source of truth for it,
+    used both by the plain GET (settings_index) and by every add/update
+    view below that re-renders the settings page in place after a form
+    validation error, via **overrides (e.g. `_settings_context(request,
+    program_form=form, active_tab='programs')`) so the failed form and
+    its tab are shown without losing the rest of the page's data.
+
+    `request` supplies the module search (`?module_q=`) and which tab was
+    open (`?tab=`) — both used to be read only inside settings_index
+    itself, so a form error elsewhere on the page (e.g. adding a Module
+    while a search was active) silently lost the active search and fell
+    back to the Campuses tab default instead of preserving either.
     """
+    module_q = request.GET.get('module_q', '').strip()
+    modules = Module.objects.all().order_by('module_name')
+    if module_q:
+        modules = modules.filter(
+            Q(module_name__icontains=module_q) | Q(module_code__icontains=module_q)
+        )
+
     context = {
         'campuses':        Campus.objects.all().order_by('campus_name'),
         'programs':        Program.objects.all().order_by('program_name'),
-        'modules':         Module.objects.all().order_by('module_name'),
+        'modules':         modules,
+        'module_q':        module_q,
         'program_modules': ProgramModule.objects.select_related(
                                'program', 'module'
                            ).order_by('program', 'module'),
         'classes':         Class.objects.select_related(
                                'program', 'campus', 'trainer'
                            ).order_by('-academic_year', 'program'),
+        'academic_calendar':   AcademicCalendar.load(),
         'campus_form':         CampusForm(),
         'program_form':        ProgramForm(),
         'module_form':         ModuleForm(),
         'program_module_form': ProgramModuleForm(),
         'class_form':          ClassForm(),
-        'active_tab':          'campuses',
+        'calendar_form':       AcademicCalendarForm(instance=AcademicCalendar.load()),
+
+        # Active tab — preserved after form submission errors
+        'active_tab': request.GET.get('tab', 'campuses'),
 
         'tabs': [
             ('campuses',       'Campuses'),
             ('programs',       'Programs'),
             ('modules',        'Modules'),
             ('classes',        'Classes'),
+            ('calendar',       'Academic Calendar'),
         ],
     }
     context.update(overrides)
     return context
 
 # ─── Attendance ───────────────────────────────────────────────────────────────
-def trainer_only(view_func):
-    """Restricts a view to Trainers only."""
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_trainer:
-            messages.error(request, "Only Trainers can access Attendance.")
-            return redirect('dashboard:index')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+trainer_only = role_required('is_trainer', "Only Trainers can access Attendance.", 'dashboard:index')
 
 
 @login_required
@@ -344,16 +330,19 @@ def attendance_view(request):
     only has to change the exceptions (Late/Absent) rather than mark
     everyone by hand every day.
     """
-    from datetime import date as date_cls
+    from datetime import date as date_cls, datetime
     from admissions.models import Student
 
     classes = Class.objects.filter(trainer=request.user, is_active=True)
     class_id = request.GET.get('class_id') or request.POST.get('class_id')
     selected_class = classes.filter(pk=class_id).first() if class_id else classes.first()
 
+    # Submitted as dd/mm/yyyy by the flatpickr-driven date field
+    # (templates/academics/attendance.html), not the native
+    # <input type="date">'s always-ISO value.
     date_str = request.GET.get('date') or request.POST.get('date')
     try:
-        selected_date = date_cls.fromisoformat(date_str) if date_str else date_cls.today()
+        selected_date = datetime.strptime(date_str, '%d/%m/%Y').date() if date_str else date_cls.today()
     except ValueError:
         selected_date = date_cls.today()
 
@@ -374,28 +363,52 @@ def attendance_view(request):
                 }
             )
         messages.success(request, f"Attendance saved for {selected_date}.")
-        return redirect(f"{request.path}?class_id={selected_class.id}&date={selected_date}")
+        return redirect(
+            f"{request.path}?class_id={selected_class.id}&date={selected_date.strftime('%d/%m/%Y')}"
+        )
 
     rows = []
     if selected_class:
-        enrollments = selected_class.enrollments.filter(
-            status=Enrollment.EnrollmentStatus.ACTIVE
-        ).select_related('student', 'student__applicant')
+        enrollments = list(
+            selected_class.enrollments.filter(
+                status=Enrollment.EnrollmentStatus.ACTIVE
+            ).select_related('student', 'student__applicant')
+        )
+
+        # get_or_create runs first, same order as before — a freshly
+        # auto-created record for selected_date needs to exist before
+        # the month-stats query below, so it's counted in this student's
+        # MTD rate on the very first page load that touches this date,
+        # not just from the next reload onward.
+        records_by_student_id = {}
+        for enrollment in enrollments:
+            record, _ = AttendanceRecord.objects.get_or_create(
+                student=enrollment.student, date=selected_date,
+                defaults={'class_group': selected_class, 'recorded_by': request.user}
+            )
+            records_by_student_id[enrollment.student_id] = record
+
+        # One query for the whole month's attendance across every student
+        # in this class, grouped in Python — replaces 2 fresh COUNT
+        # queries *per student in the loop above* (a textbook N+1).
+        month_stats = {}
+        for row in (
+            AttendanceRecord.objects.filter(
+                student_id__in=records_by_student_id.keys(),
+                date__year=selected_date.year, date__month=selected_date.month,
+            ).values('student_id', 'status')
+        ):
+            stats = month_stats.setdefault(row['student_id'], {'total': 0, 'present': 0})
+            stats['total'] += 1
+            if row['status'] != AttendanceRecord.Status.ABSENT:
+                stats['present'] += 1
 
         for enrollment in enrollments:
             student = enrollment.student
-            record, _ = AttendanceRecord.objects.get_or_create(
-                student=student, date=selected_date,
-                defaults={'class_group': selected_class, 'recorded_by': request.user}
-            )
-            month_records = AttendanceRecord.objects.filter(
-                student=student, date__year=selected_date.year, date__month=selected_date.month
-            )
-            total = month_records.count()
-            present = month_records.exclude(status=AttendanceRecord.Status.ABSENT).count()
-            mtd_rate = round((present / total) * 100) if total else 100
+            stats = month_stats.get(student.id, {'total': 0, 'present': 0})
+            mtd_rate = round((stats['present'] / stats['total']) * 100) if stats['total'] else 100
 
-            rows.append({'student': student, 'record': record, 'mtd_rate': mtd_rate})
+            rows.append({'student': student, 'record': records_by_student_id[student.id], 'mtd_rate': mtd_rate})
 
     present_count = sum(1 for r in rows if r['record'].status == AttendanceRecord.Status.PRESENT)
     late_count = sum(1 for r in rows if r['record'].status == AttendanceRecord.Status.LATE)

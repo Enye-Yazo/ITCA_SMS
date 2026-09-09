@@ -26,6 +26,17 @@
     <a href="{% url 'admissions:student_list' %}" class="text-itca-navy/50 hover:text-itca-navy text-sm">
       ← Back to Students
     </a>
+    {% if request.user.is_exec_admin %}
+    <form method="post" action="{% url 'admissions:student_delete' student.pk %}">
+      {% csrf_token %}
+      <button type="button"
+              onclick="itcaConfirm('Delete {{ student.full_name|escapejs }}? This permanently removes their enrollment, modules, assessments and exam history. This cannot be undone.', this.form)"
+              class="px-4 py-2 rounded-lg text-sm font-medium text-red-700 hover:text-red-700 transition-colors"
+              style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2);">
+        Delete student
+      </button>
+    </form>
+    {% endif %}
   </div>
 </div>
 
@@ -37,10 +48,11 @@
   </div>
   <div class="stat-card">
     <span class="text-itca-navy/50 text-xs uppercase tracking-wider">Student Email</span>
-    {% if request.user.is_exec_admin %}
+    {% if request.user.is_exec_admin or request.user.is_test_admin %}
     <!-- Collapsed by default so this card matches its siblings' height —
          only the edit form (and any layout risk that comes with it)
-         appears once the Exec Admin actually opens it. -->
+         appears once opened. Test Admin owns creating student email
+         accounts (see Platform Management); Exec Admin can also fix one. -->
     <details>
       <summary class="text-lg font-semibold cursor-pointer list-none flex items-center gap-2">
         <span class="truncate">{{ student.student_email|default:"—" }}</span>
@@ -97,70 +109,61 @@
   </div>
 </details>
 
-<!-- ── Modules & Local Assessments ───────────────────────────────────────── -->
+<!-- ── Academic Standing (modules + NQF5 competency + exam attempt counts) ──
+     Exec Admin only — Test Admin's reason for viewing a student's profile
+     is setting up vendor platform accounts, not academic progress; they
+     get Demographic Details and Enrollment History only. -->
+{% if request.user.is_exec_admin %}
 <div class="rounded-2xl p-6 mb-6 surface">
-  <h2 class="font-semibold text-lg mb-4">Modules &amp; Local Assessments</h2>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-semibold text-lg">Academic Standing</h2>
+    {% if available_modules %}
+    <button type="button" onclick="showModal('addModuleModal')" class="btn-secondary !text-xs">
+      + Add module
+    </button>
+    {% endif %}
+  </div>
   <div class="overflow-x-auto">
     <table class="dash-table w-full">
       <thead>
         <tr>
           <th>Module</th>
           <th>Status</th>
-          <th class="text-right">PFA01</th>
-          <th class="text-right">PFA02</th>
-          <th class="text-right">PSA</th>
+          <th class="text-right">NQF5 Competency</th>
           <th class="text-right">Int. Exam Attempts</th>
         </tr>
       </thead>
       <tbody>
         {% for sm in student_modules %}
-        {% with assessments=sm.local_assessments.all %}
         <tr>
-          <td class="font-semibold text-xs">{{ sm.module.module_code }}</td>
+          <td class="font-semibold text-xs">
+            {{ sm.module.module_name }}
+            <span class="block text-itca-navy/30 font-normal">{{ sm.module.module_code }}</span>
+          </td>
           <td class="text-itca-navy/70">{{ sm.status }}</td>
           <td class="text-right">
-            {% for a in assessments %}
-              {% if a.assessment_type == 'PFA01' %}
-                {% if a.effective_mark is not None %}
-                  <span class="{% if a.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">{{ a.effective_mark }}</span>
-                {% else %}<span class="text-itca-navy/30">—</span>{% endif %}
-              {% endif %}
-            {% endfor %}
-          </td>
-          <td class="text-right">
-            {% for a in assessments %}
-              {% if a.assessment_type == 'PFA02' %}
-                {% if a.effective_mark is not None %}
-                  <span class="{% if a.effective_mark >= 95 %}score-high{% else %}score-low{% endif %}">{{ a.effective_mark }}</span>
-                {% else %}<span class="text-itca-navy/30">—</span>{% endif %}
-              {% endif %}
-            {% endfor %}
-          </td>
-          <td class="text-right">
-            {% for a in assessments %}
-              {% if a.assessment_type == 'PSA' %}
-                {% if a.competent is None %}
-                  <span class="text-itca-navy/30">—</span>
-                {% elif a.competent %}
-                  <span class="score-high">Competent</span>
-                {% else %}
-                  <span class="score-low">Not Yet Competent</span>
-                {% endif %}
-              {% endif %}
-            {% endfor %}
+            {% if not sm.module.is_local_assessment %}
+              <span class="text-itca-navy/20">—</span>
+            {% elif not sm.local_assessment.competency %}
+              <span class="text-itca-navy/30">—</span>
+            {% elif sm.local_assessment.competency == 'Competent' %}
+              <span class="score-high">Competent</span>
+            {% else %}
+              <span class="score-low">Not Yet Competent</span>
+            {% endif %}
           </td>
           <td class="text-right text-itca-navy/70">{{ sm.exam_attempts.count }}</td>
         </tr>
-        {% endwith %}
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center text-itca-navy/40 py-8">No modules assigned yet.</td>
+          <td colspan="4" class="text-center text-itca-navy/40 py-8">No modules assigned yet.</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+{% endif %}
 
 <!-- ── Enrollment History ────────────────────────────────────────────────── -->
 <div class="rounded-2xl p-6 mb-6 surface">
@@ -192,6 +195,38 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- ── Add Module Modal ─────────────────────────────────────────────────────
+     Always adds as an Elective — a manual, one-off addition to the
+     student's package, not a program default. -->
+<div id="addModuleModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-scrim">
+  <div class="w-full max-w-md rounded-2xl p-6 surface">
+    <div class="flex items-start justify-between mb-5">
+      <h2 class="font-semibold text-lg">Add module</h2>
+      <button type="button" onclick="hideModal('addModuleModal')"
+              class="text-itca-navy/40 hover:text-itca-navy text-xl leading-none">&times;</button>
+    </div>
+    <form method="post" action="{% url 'admissions:student_module_add' student.pk %}">
+      {% csrf_token %}
+      <label class="text-sm text-itca-navy/70">
+        Module
+        <select name="module_id" required
+                class="mt-1 w-full rounded-lg bg-transparent border border-itca-navy/20 px-3 py-2.5 text-sm text-itca-navy">
+          {% for module in available_modules %}
+          <option value="{{ module.id }}">{{ module.module_code }} — {{ module.module_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" onclick="hideModal('addModuleModal')"
+                class="text-sm text-itca-navy/50 hover:text-itca-navy px-4 py-2 transition-colors">
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary">Add module</button>
+      </div>
+    </form>
   </div>
 </div>
 

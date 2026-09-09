@@ -10,4 +10,6 @@ db.sqlite3
 node_modules/
 staticfiles/
 media/
-.DS_Store 
+.DS_Store
+CLAUDE.md 
+itca-schema.html

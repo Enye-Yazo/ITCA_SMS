@@ -16,17 +16,14 @@
       + Book Exam
     </button>
   </div>
+  <div class="flex gap-0 border-b border-white/10 mt-6 relative z-10">
+    <a href="{% url 'assessments:exam_attempt_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Exam Results</a>
+    <a href="{% url 'assessments:booking_list' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-semibold text-white border-b-2 border-white">Bookings</a>
+    <a href="{% url 'assessments:platform_management' %}" class="px-5 pt-2.5 pb-3 -mb-px text-sm font-medium text-white/55 border-b-2 border-transparent">Platform Management</a>
+  </div>
 </div>
 
 <div class="px-8 py-6">
-
-{% if messages %}
-{% for message in messages %}
-<div class="mb-4 rounded-lg p-3 text-sm {% if message.tags == 'error' %}bg-itca-red-light text-itca-red-dark{% else %}bg-itca-green-light text-itca-green-dark{% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <div class="surface overflow-hidden mb-5">
   <div class="flex items-center justify-between p-4 border-b border-itca-border">
@@ -97,7 +94,7 @@
       <tr>
         <td class="pl-5 font-semibold">{{ b.student_module.student.full_name }}</td>
         <td>{{ b.student_module.module.module_code }}</td>
-        <td>{{ b.exam_date }}</td>
+        <td>{{ b.exam_date|date:"d/m/Y" }}</td>
         <td>{{ b.exam_time|default:"—" }}</td>
         <td>
           <span class="badge {% if b.status == 'Scheduled' %}badge-amber{% elif b.status == 'Completed' %}badge-green{% else %}badge-slate{% endif %}">{{ b.status }}</span>

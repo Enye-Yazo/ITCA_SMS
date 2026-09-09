@@ -1,22 +1,26 @@
-# admissions/views.py
-
-from datetime import date as date_cls
+# admissions/views/applications.py
+"""
+The application/registration multi-step form workflow, plus the Exec
+Admin review pipeline (list → detail → approve/reject) for applications
+already submitted. `application_step` also doubles as the entry point
+for historical onboarding (see its `historical` kwarg) — the actual
+"skip the review, assign straight to a class" finishing step for that
+flow lives in `onboarding.py` since it's a distinct action with its own
+permission and capacity checks, not a form step.
+"""
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Q
 
-from .models import Applicant, StudentContact, Student, Alumni
-from .forms import (
+from ..models import Applicant, Student
+from ..forms import (
     PersonalDetailsForm, ContactAddressForm,
     EducationDisabilityForm, NextOfKinForm
 )
-from academics.models import Campus, Program, Class, Enrollment
-from accounts.models import SystemUser, UserRole
-from assessments.models import StudentModule, InternationalExamAttempt
+from academics.models import Class, Enrollment
 
 
 # ─── Step configuration ───────────────────────────────────────────────────────
@@ -112,7 +116,7 @@ def application_step(request, step=1, applicant_id=None, historical=False):
                 # carries it.
                 is_new_applicant = applicant is None
                 applicant = form.save(commit=False)
-                applicant.application_status = Applicant.ApplicationStatus.PENDING
+                applicant.application_status = Applicant.ApplicationStatus.DRAFT
                 if is_new_applicant:
                     applicant.is_historical_onboarding = historical
                 applicant.save()
@@ -385,12 +389,19 @@ def application_reject(request, applicant_id):
 
     return redirect('admissions:application_list')
 
+
 @login_required
 def application_submit(request, applicant_id):
     """
-    Finalises a draft application and sends it for exec admin review.
-    Changes status from Pending to Pending (already set) and confirms
-    the application is complete and ready for review.
+    Finalises a draft application and sends it for Exec Admin review —
+    moves application_status from Draft to Pending, once every required
+    field is confirmed complete. Before this, a Data Capturer's
+    in-progress application stays Draft and never shows up as "Pending"
+    on the Exec Admin side (dashboard/application_list both filter on
+    PENDING specifically) — this used to set status to Pending as early
+    as step 1, so an application the Data Capturer hadn't even finished
+    filling in yet already looked like something awaiting Exec Admin
+    review.
     """
     if not (request.user.is_data_capturer or request.user.is_exec_admin):
         return redirect('dashboard:index')
@@ -418,7 +429,8 @@ def application_submit(request, applicant_id):
         return redirect('admissions:application_step',
                        applicant_id=applicant_id, step=5)
 
-    # Mark the submission date
+    # Actually transition Draft -> Pending, and mark the submission date.
+    applicant.application_status = Applicant.ApplicationStatus.PENDING
     applicant.status_date = timezone.now().date()
     applicant.save()
 
@@ -428,298 +440,3 @@ def application_submit(request, applicant_id):
     )
 
     return redirect('admissions:application_list')
-
-
-@login_required
-@transaction.atomic
-def onboard_confirm(request, applicant_id):
-    """
-    Finishes the historical-onboarding flow (see application_step's
-    `historical` kwarg): places an already-real, already-enrolled
-    student straight into the class the Data Capturer picked at step 5
-    — no separate Exec Admin admission decision, since there isn't one
-    to make for a student who already exists. Still enforces class
-    capacity, same as a normal approval.
-    """
-    if not (request.user.is_data_capturer or request.user.is_exec_admin):
-        messages.error(request, "You do not have permission to onboard students.")
-        return redirect('dashboard:index')
-
-    applicant = get_object_or_404(Applicant, pk=applicant_id)
-
-    if not applicant.is_historical_onboarding:
-        messages.error(request, "This application isn't a historical onboarding record.")
-        return redirect('admissions:application_step', applicant_id=applicant_id, step=5)
-
-    if hasattr(applicant, 'student_profile'):
-        messages.info(request, f"{applicant.full_name} has already been onboarded.")
-        return redirect('admissions:student_detail', student_id=applicant.student_profile.id)
-
-    if request.method != 'POST':
-        return redirect('admissions:application_step', applicant_id=applicant_id, step=5)
-
-    target_class = get_object_or_404(
-        Class, pk=request.POST.get('class_id'),
-        program=applicant.program, campus=applicant.campus,
-    )
-
-    enrolled_count = Enrollment.objects.filter(
-        class_group=target_class, status=Enrollment.EnrollmentStatus.ACTIVE
-    ).count()
-    if enrolled_count >= target_class.capacity:
-        messages.error(
-            request,
-            f"{target_class} is at capacity ({target_class.capacity} students). "
-            f"Increase capacity or pick a different class."
-        )
-        return redirect('admissions:application_step', applicant_id=applicant_id, step=5)
-
-    try:
-        start_date = date_cls.fromisoformat(request.POST.get('start_date', ''))
-    except ValueError:
-        start_date = timezone.now().date()
-
-    # Creating the Student triggers the same default-module-assignment
-    # signal a fresh approval does, so the student's local assessment
-    # slots exist immediately for the Trainer to backfill marks into.
-    student = Student.objects.create(applicant=applicant, trainer=target_class.trainer)
-    Enrollment.objects.create(
-        student=student, class_group=target_class,
-        start_date=start_date, status=Enrollment.EnrollmentStatus.ACTIVE,
-    )
-
-    applicant.application_status = Applicant.ApplicationStatus.APPROVED
-    applicant.status_date = timezone.now().date()
-    applicant.save()
-
-    messages.success(
-        request,
-        f"{applicant.full_name} onboarded as {student.student_id_code}."
-    )
-    return redirect('admissions:student_detail', student_id=student.id)
-
-
-# ─── Student List ─────────────────────────────────────────────────────────────
-def _filtered_student_rows(request):
-    """
-    Shared filtering logic for the student list page and the Excel export,
-    so the two always agree on which students match the current filters.
-    Exec Admin sees every student. Trainers see only their own.
-    Returns a list of {'student': Student, 'cohort': str, 'enrollment': Enrollment|None}.
-    """
-    students = Student.objects.select_related(
-        'applicant', 'applicant__campus', 'applicant__program', 'trainer'
-    ).prefetch_related('enrollments__class_group')
-
-    if request.user.is_trainer:
-        students = students.filter(trainer=request.user)
-
-    campus_id = request.GET.get('campus', 'all')
-    program_id = request.GET.get('program', 'all')
-    cohort = request.GET.get('cohort', 'all')
-    trainer_id = request.GET.get('trainer', 'all')
-    search = request.GET.get('q', '').strip()
-
-    if campus_id != 'all':
-        students = students.filter(applicant__campus_id=campus_id)
-    if program_id != 'all':
-        students = students.filter(applicant__program_id=program_id)
-    if trainer_id != 'all' and request.user.is_exec_admin:
-        students = students.filter(trainer_id=trainer_id)
-    if search:
-        students = students.filter(
-            Q(student_id_code__icontains=search) |
-            Q(applicant__first_name__icontains=search) |
-            Q(applicant__last_name__icontains=search)
-        )
-
-    # Cohort lives on the student's most recent enrollment, so filter in Python
-    # once the queryset above has already narrowed things down.
-    rows = []
-    for student in students:
-        latest_enrollment = None
-        for enrollment in student.enrollments.all():
-            if latest_enrollment is None or enrollment.start_date > latest_enrollment.start_date:
-                latest_enrollment = enrollment
-        student_cohort = latest_enrollment.class_group.cohort if latest_enrollment else None
-
-        if cohort != 'all' and student_cohort != cohort:
-            continue
-
-        rows.append({
-            'student': student,
-            'cohort': student_cohort or '—',
-            'enrollment': latest_enrollment,
-        })
-
-    return rows
-
-
-@login_required
-def student_list(request):
-    """
-    Lists all registered students.
-    Filterable by campus, cohort, program and (for Exec Admin) trainer,
-    and searchable by student ID.
-    """
-    if not (request.user.is_exec_admin or request.user.is_trainer):
-        messages.error(request, "You do not have permission to view students.")
-        return redirect('dashboard:index')
-
-    campus_id = request.GET.get('campus', 'all')
-    program_id = request.GET.get('program', 'all')
-    cohort = request.GET.get('cohort', 'all')
-    trainer_id = request.GET.get('trainer', 'all')
-    search = request.GET.get('q', '').strip()
-
-    context = {
-        'rows': _filtered_student_rows(request),
-        'campuses': Campus.objects.filter(is_active=True),
-        'programs': Program.objects.filter(is_active=True),
-        'cohort_choices': Class.CohortChoices.choices,
-        'trainers': SystemUser.objects.filter(role=UserRole.TRAINER, is_active=True) if request.user.is_exec_admin else None,
-        'filters': {
-            'campus': campus_id,
-            'program': program_id,
-            'cohort': cohort,
-            'trainer': trainer_id,
-            'q': search,
-        },
-    }
-    return render(request, 'admissions/student_list.html', context)
-
-
-# ─── Student Excel Export ─────────────────────────────────────────────────────
-@login_required
-def student_export(request):
-    """
-    Exports the currently filtered student list to .xlsx.
-    Exec Admin only. Deliberately excludes LearningPlatformCredential and
-    AccessKey fields (username/password/key values) per SRD requirement 12 —
-    only academic and contact data is included.
-    """
-    if not request.user.is_exec_admin:
-        messages.error(request, "Only Exec Admins can export student data.")
-        return redirect('dashboard:index')
-
-    import openpyxl
-    from openpyxl.styles import Font
-    from django.http import HttpResponse
-
-    rows = _filtered_student_rows(request)
-
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "Students"
-
-    headers = [
-        "Student ID", "Full Name", "Campus", "Program", "Cohort",
-        "Trainer", "Enrollment Status", "Enrollment Start Date",
-        "ID Number", "Personal Email", "Student Email", "Phone",
-        "Formative Average (%)", "Competent",
-    ]
-    sheet.append(headers)
-    for cell in sheet[1]:
-        cell.font = Font(bold=True)
-
-    for row in rows:
-        student = row['student']
-        enrollment = row['enrollment']
-        formative_average = student.formative_average
-
-        sheet.append([
-            student.student_id_code,
-            student.full_name,
-            student.campus.campus_name,
-            student.program.program_name,
-            row['cohort'],
-            student.trainer.full_name if student.trainer else '',
-            enrollment.status if enrollment else '',
-            enrollment.start_date.isoformat() if enrollment else '',
-            student.applicant.id_number,
-            student.applicant.personal_email or '',
-            student.student_email or '',
-            student.applicant.phone or '',
-            round(formative_average, 1) if formative_average is not None else '',
-            'Yes' if student.is_competent else 'No',
-        ])
-
-    for column_cells in sheet.columns:
-        length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in column_cells)
-        sheet.column_dimensions[column_cells[0].column_letter].width = min(length + 2, 40)
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    filename = f"itca_students_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    workbook.save(response)
-    return response
-
-
-# ─── Student Detail ───────────────────────────────────────────────────────────
-@login_required
-def student_detail(request, student_id):
-    """
-    Full academic history for a single student:
-    modules, local assessments, international exam attempts,
-    and enrollment history (a Promoted row followed by a new Active
-    enrollment in the enrollment list below is that student's
-    promotion history — promotion is now automatic, not a separate
-    workflow, so there's nothing else to show).
-    Exec Admin can view any student; a Trainer only their own.
-    """
-    if not (request.user.is_exec_admin or request.user.is_trainer):
-        messages.error(request, "You do not have permission to view students.")
-        return redirect('dashboard:index')
-
-    student = get_object_or_404(
-        Student.objects.select_related('applicant', 'applicant__campus', 'applicant__program', 'trainer'),
-        pk=student_id
-    )
-
-    if request.user.is_trainer and student.trainer_id != request.user.id:
-        messages.error(request, "You may only view your own students.")
-        return redirect('admissions:student_list')
-
-    student_modules = StudentModule.objects.select_related('module').prefetch_related(
-        'local_assessments', 'exam_attempts'
-    ).filter(student=student)
-
-    enrollments = student.enrollments.select_related('class_group').order_by('-start_date')
-
-    active_enrollment = enrollments.filter(status=Enrollment.EnrollmentStatus.ACTIVE).first()
-
-    context = {
-        'student': student,
-        'student_modules': student_modules,
-        'enrollments': enrollments,
-        'active_enrollment': active_enrollment,
-    }
-    return render(request, 'admissions/student_detail.html', context)
-
-@login_required
-def student_set_email(request, student_id):
-    """
-    Sets a student's school-issued email — Exec Admin only, editable from
-    the Students detail page. student_email is unique, so a duplicate is
-    rejected with a clear message rather than a raw IntegrityError.
-    """
-    if not request.user.is_exec_admin:
-        messages.error(request, "Only Exec Admins can set a student's email address.")
-        return redirect('admissions:student_detail', student_id=student_id)
-
-    if request.method != 'POST':
-        return redirect('admissions:student_detail', student_id=student_id)
-
-    student = get_object_or_404(Student, pk=student_id)
-    email = request.POST.get('student_email', '').strip()
-
-    if email and Student.objects.filter(student_email__iexact=email).exclude(pk=student.pk).exists():
-        messages.error(request, f"{email} is already assigned to another student.")
-        return redirect('admissions:student_detail', student_id=student_id)
-
-    student.student_email = email or None
-    student.save(update_fields=['student_email'])
-    messages.success(request, "Student email updated.")
-    return redirect('admissions:student_detail', student_id=student_id)

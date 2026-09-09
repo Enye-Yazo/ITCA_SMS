@@ -16,20 +16,6 @@
   <a href="{% url 'accounts:user_invite' %}" class="btn-primary">Invite User</a>
 </div>
 
-<!-- ── Messages ──────────────────────────────────────────────────────────── -->
-{% if messages %}
-{% for message in messages %}
-<div class="rounded-xl p-4 mb-4 text-sm
-  {% if message.tags == 'error' %}
-    bg-red-50 border border-red-300 text-red-700
-  {% else %}
-    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
-  {% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
 <!-- ── User List ─────────────────────────────────────────────────────────── -->
 <div class="rounded-2xl p-6 surface">
   <div class="overflow-x-auto">
@@ -93,8 +79,8 @@
               Save
             </button>
             {% if not row.user.is_superuser %}
-            <button type="submit" form="user-delete-form-{{ row.user.pk }}"
-                    onclick="return confirm('Delete {{ row.user.full_name|escapejs }}? This can\'t be undone.')"
+            <button type="button"
+                    onclick="itcaConfirm('Delete {{ row.user.full_name|escapejs }}? This can\'t be undone.', 'user-delete-form-{{ row.user.pk }}')"
                     class="text-xs px-3 py-1 rounded-full font-medium ml-1"
                     style="background: var(--color-itca-red-light); color: var(--color-itca-red-dark);">
               Delete

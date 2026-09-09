@@ -8,6 +8,7 @@ from django.http import Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
+from .decorators import role_required
 from .forms import UserRoleForm
 from .models import SystemUser
 
@@ -36,15 +37,7 @@ def landing(request):
     return render(request, 'accounts/landing.html', {'debug': settings.DEBUG})
 
 
-def exec_only(view_func):
-    """Restricts a view to Exec Admins only."""
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_exec_admin:
-            messages.error(request, "Only Exec Admins can manage users.")
-            return redirect('accounts:landing')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+exec_only = role_required('is_exec_admin', "Only Exec Admins can manage users.", 'accounts:landing')
 
 
 # ─── User Management ─────────────────────────────────────────────────────────
@@ -147,7 +140,9 @@ def trainer_list(request):
     student count and formative pass rate — the Exec Admin's overview of
     staffing and performance across both campuses.
     """
+    from django.db.models import Prefetch
     from academics.models import Enrollment
+    from assessments.models import StudentModule
 
     trainers = SystemUser.objects.filter(role='trainer').select_related('campus').order_by('first_name')
 
@@ -158,10 +153,23 @@ def trainer_list(request):
     programs_seen = set()
 
     for trainer in trainers:
-        active_students = trainer.students.filter(
-            enrollments__status=Enrollment.EnrollmentStatus.ACTIVE
-        ).distinct()
-        student_count = active_students.count()
+        # select_related + the student_modules Prefetch turn this page's
+        # query count from ~2-4 extra queries *per student* (each
+        # `.is_evaluated`/`.is_competent` check, and each `.program`
+        # lookup, used to hit the DB fresh) into 2 queries *per trainer*
+        # — this page was making ~120 queries for 4 trainers/~40 students
+        # before this fix (see Student.is_evaluated's docstring).
+        active_students = list(
+            trainer.students.filter(
+                enrollments__status=Enrollment.EnrollmentStatus.ACTIVE
+            ).distinct().select_related('applicant', 'applicant__program').prefetch_related(
+                Prefetch(
+                    'student_modules',
+                    queryset=StudentModule.objects.select_related('module', 'local_assessment'),
+                )
+            )
+        )
+        student_count = len(active_students)
         total_students += student_count
 
         competent = 0
@@ -170,7 +178,7 @@ def trainer_list(request):
         for student in active_students:
             program_name = student.program.program_name if student.program else program_name
             programs_seen.add(program_name)
-            if student.formative_average is not None:
+            if student.is_evaluated:
                 evaluated += 1
                 if student.is_competent:
                     competent += 1

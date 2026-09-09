@@ -14,10 +14,15 @@ class Applicant(models.Model):
     """
 
     class ApplicationStatus(models.TextChoices):
+        # A Data Capturer's in-progress application — set the moment step 1
+        # is first saved, and never shown to an Exec Admin as "Pending"
+        # (dashboard/application_list both filter on PENDING specifically).
+        # Only application_submit (the real "Submit for approval" action at
+        # step 5) moves an application from Draft to Pending.
+        DRAFT = 'Draft', 'Draft'
         PENDING = 'Pending', 'Pending'
         APPROVED = 'Approved', 'Approved'
         REJECTED = 'Rejected', 'Rejected'
-        WAITLISTED = 'Waitlisted', 'Waitlisted'
 
     class IDType(models.TextChoices):
         SA_ID = 'SA ID', 'South African ID'
@@ -37,11 +42,11 @@ class Applicant(models.Model):
         FOREIGN_NATIONAL = 'Foreign National', 'Foreign National'
 
     class ReferralSource(models.TextChoices):
-        WORD_OF_MOUTH = 'Word of Mouth', 'Word of Mouth'
-        FACEBOOK      = 'Facebook', 'Facebook'
-        EXHIBITION    = 'Exhibition', 'Exhibition'
-        FIND_A_FRIEND = 'Find a Friend', 'Find a Friend'
-        WEBSITE       = 'Website', 'Website'
+        WEBSITE         = 'Website', 'Website'
+        WORD_OF_MOUTH   = 'Word Of Mouth', 'Word Of Mouth'
+        CAREER_EXPO     = 'Career Expo', 'Career Expo'
+        SCHOOL_OUTREACH = 'School Outreach', 'School Outreach'
+        SOCIAL_MEDIA    = 'Social Media', 'Social Media'
 
     # ── Application Tracking ──────────────────────────────────────────────────
     date_applied = models.DateField(auto_now_add=True)
@@ -148,19 +153,6 @@ class Applicant(models.Model):
         blank=True,
         null=True,
         help_text="Describe any disability or leave blank for none"
-    )
-
-    # ── Application Tracking ──────────────────────────────────────────────────
-    date_applied = models.DateField(auto_now_add=True)
-    application_status = models.CharField(
-        max_length=20,
-        choices=ApplicationStatus.choices,
-        default=ApplicationStatus.PENDING
-    )
-    status_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Date the status was last changed"
     )
 
     # Set once, at creation, by whichever entry point a Data Capturer used
@@ -303,96 +295,101 @@ class Student(models.Model):
         return self.applicant.program
 
     @property
-    def formative_average(self):
+    def is_evaluated(self):
         """
-        Average of the effective mark (remediation mark if remediated,
-        else original mark) across every formative assessment the
-        student has a mark recorded for, across all modules.
-        Returns None if no formative marks have been captured yet.
+        True once at least one of the student's assigned NQF5 modules has
+        been rated (Competent or Not Yet Competent) — the "has grading
+        started" signal used by Reports/dashboard/trainer-roster pass
+        rates to decide whether a student counts toward the denominator
+        at all.
+
+        Reads through the `student_modules` related manager rather than
+        issuing a fresh `LocalAssessment.objects.filter(...)` query —
+        this is what lets a queryset of many students avoid an N+1 by
+        prefetching once with
+        `Prefetch('student_modules', queryset=StudentModule.objects.select_related('module', 'local_assessment'))`
+        (see accounts.views.trainer_list and dashboard.views.reports_index,
+        the two call sites this used to make ~200 and ~120 queries for a
+        few dozen students, before this fix). Calling it on a single
+        `Student` fetched without that prefetch still works — it just
+        costs one query per module instead of being free.
         """
-        # Imported lazily to avoid a circular import — assessments.models
-        # already imports Student from this module at module load time.
         from assessments.models import LocalAssessment
 
-        local_assessments = LocalAssessment.objects.filter(
-            student_module__student=self,
-            assessment_type__in=[
-                LocalAssessment.AssessmentType.FORMATIVE_1,
-                LocalAssessment.AssessmentType.FORMATIVE_2,
-            ],
-        )
-        effective_marks = [
-            a.effective_mark for a in local_assessments
-            if a.effective_mark is not None
-        ]
-        if not effective_marks:
-            return None
-        return sum(effective_marks) / len(effective_marks)
+        for student_module in self.student_modules.all():
+            if not student_module.module.is_local_assessment:
+                continue
+            assessment = getattr(student_module, 'local_assessment', None)
+            if assessment is not None and assessment.competency:
+                return True
+        return False
 
     @property
     def is_competent(self):
-        """A student is deemed Competent once their formative average reaches 94%."""
-        average = self.formative_average
-        return average is not None and average >= 94
-
-    @property
-    def all_nqf5_passed(self):
         """
-        True once every local NQF5 assessment the student has (both
-        formatives ≥95%, including a remediation mark where one was
-        used, and the summative marked Competent) is passed, across
-        every module they're assigned. Used to trigger automatic
-        promotion — this is a stricter, all-or-nothing check than
-        `is_competent`'s formative-average threshold, and requires at
-        least one module with local assessments to be assigned so an
-        untouched student can never read as "all passed".
+        True once every NQF5 (local-assessment) module the student is
+        assigned is rated Competent. This is deliberately all-or-nothing
+        — one module still Not Yet Competent or ungraded means the
+        student isn't Competent overall — and requires at least one
+        NQF5 module to be assigned, so an untouched student can never
+        read as competent. This is also the trigger for automatic
+        promotion (assessments.models.auto_promote_on_full_nqf5_pass).
+
+        Same `student_modules`-related-manager approach as `is_evaluated`
+        above, for the same N+1 reason — see its docstring.
         """
-        from assessments.models import LocalAssessment, StudentModule
+        from assessments.models import LocalAssessment
 
-        student_modules = StudentModule.objects.filter(
-            student=self, module__is_local_assessment=True
-        ).prefetch_related('local_assessments')
-
-        if not student_modules.exists():
-            return False
-
-        for student_module in student_modules:
-            by_type = {
-                a.assessment_type: a
-                for a in student_module.local_assessments.all()
-            }
-
-            for key in (LocalAssessment.AssessmentType.FORMATIVE_1,
-                        LocalAssessment.AssessmentType.FORMATIVE_2):
-                assessment = by_type.get(key)
-                if assessment is None or assessment.effective_mark is None or assessment.effective_mark < 95:
-                    return False
-
-            summative = by_type.get(LocalAssessment.AssessmentType.SUMMATIVE)
-            if summative is None or summative.competent is not True:
+        found_local_assessment_module = False
+        for student_module in self.student_modules.all():
+            if not student_module.module.is_local_assessment:
+                continue
+            found_local_assessment_module = True
+            assessment = getattr(student_module, 'local_assessment', None)
+            if assessment is None or assessment.competency != LocalAssessment.Competency.COMPETENT:
                 return False
 
-        return True
+        return found_local_assessment_module
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
 
         if is_new and not self.student_id_code:
+            from django.db import transaction
             from django.utils import timezone
             year = timezone.now().year
-            campus_code = self.applicant.campus.campus_code
 
-            # Count existing students at this campus for this year
-            # to determine the next sequence number
-            existing_count = Student.objects.filter(
-                applicant__campus=self.applicant.campus,
-                created_at__year=year
-            ).count()
+            # Locking the Campus row (not just reading Student's count) is
+            # what actually prevents a collision here — without it, two
+            # Students approved for the same campus at nearly the same
+            # moment (two Exec Admins approving in parallel, or a slow/
+            # cold-starting request getting double-submitted) can both read
+            # the same `existing_count` before either has committed its
+            # write, then both try to save the exact same student_id_code.
+            # One succeeds; the other hits student_id_code's UNIQUE
+            # constraint as an uncaught IntegrityError — a 500 to whoever
+            # made that second request — and the whole @transaction.atomic
+            # approval (Student + Enrollment + Applicant status) rolls
+            # back, so nothing is left half-done, but the approval itself
+            # still visibly failed. select_for_update() on the Campus row
+            # makes the second save() block until the first one commits,
+            # so it recomputes the count fresh and gets the next number
+            # instead of colliding — reproduced and confirmed fixed via two
+            # threads racing to create a Student for the same campus.
+            with transaction.atomic():
+                campus = Campus.objects.select_for_update().get(pk=self.applicant.campus_id)
 
-            sequence = str(existing_count).zfill(3)
-            self.student_id_code = f"{campus_code}-{year}-{sequence}"
-            super().save(update_fields=['student_id_code'])
+                # Count existing students at this campus for this year
+                # to determine the next sequence number
+                existing_count = Student.objects.filter(
+                    applicant__campus=campus,
+                    created_at__year=year
+                ).count()
+
+                sequence = str(existing_count).zfill(3)
+                self.student_id_code = f"{campus.campus_code}-{year}-{sequence}"
+                super().save(update_fields=['student_id_code'])
 
 # ─── Alumni ───────────────────────────────────────────────────────────────────
 class Alumni(models.Model):

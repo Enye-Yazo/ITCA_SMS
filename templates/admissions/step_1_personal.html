@@ -27,9 +27,13 @@
       {% include 'admissions/includes/form_field.html' with field=form.residential_status %}
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
       {% include 'admissions/includes/form_field.html' with field=form.campus %}
       {% include 'admissions/includes/form_field.html' with field=form.program %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {% include 'admissions/includes/form_field.html' with field=form.referral_source %}
     </div>
   </div>
 

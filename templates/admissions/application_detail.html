@@ -21,6 +21,8 @@
         bg-itca-green-light text-itca-green-dark
       {% elif applicant.application_status == 'Rejected' %}
         bg-red-100 text-red-700
+      {% elif applicant.application_status == 'Draft' %}
+        bg-itca-surface text-itca-muted
       {% else %}
         bg-amber-100 text-amber-700
       {% endif %}">
@@ -28,22 +30,6 @@
     </span>
   </div>
 </div>
-
-<!-- ── Messages ──────────────────────────────────────────────────────────── -->
-{% if messages %}
-{% for message in messages %}
-<div class="rounded-xl p-4 mb-4 text-sm
-  {% if message.tags == 'error' %}
-    bg-red-50 border border-red-300 text-red-700
-  {% elif message.tags == 'warning' %}
-    bg-amber-50 border border-amber-300 text-amber-700
-  {% else %}
-    bg-itca-green-light border border-itca-green-dark/30 text-itca-green-dark
-  {% endif %}">
-  {{ message }}
-</div>
-{% endfor %}
-{% endif %}
 
 <!-- ── Capacity Warning ───────────────────────────────────────────────────── -->
 {% if not active_class %}
@@ -186,8 +172,8 @@
   <form method="post"
         action="{% url 'admissions:application_reject' applicant.pk %}">
     {% csrf_token %}
-    <button type="submit"
-            onclick="return confirm('Reject this application? This cannot be undone.')"
+    <button type="button"
+            onclick="itcaConfirm('Reject this application? This cannot be undone.', this.form)"
             class="px-5 py-2 rounded-lg text-sm font-medium
                    text-red-700 hover:text-red-700 transition-colors"
             style="background: rgba(248,113,113,0.1);
